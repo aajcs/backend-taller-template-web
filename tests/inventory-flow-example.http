@@ -1,0 +1,214 @@
+### ============================================
+### EJEMPLO COMPLETO: FLUJO DE RESERVAS Y ENTREGAS
+### ============================================
+### Roles:
+### - Asesor: Crea OT y agrega repuestos
+### - Almacenista: Genera orden de salida y entrega
+### - Técnico: Recibe e instala repuesto
+### ============================================
+
+@baseUrl = http://localhost:8080/api
+@token = YOUR_JWT_TOKEN_HERE
+
+### ============================================
+### PASO 0: Login (obtener token)
+### ============================================
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "admin@example.com",
+  "password": "123456"
+}
+
+### Guardar el token de la respuesta y reemplazar {{token}}
+
+### ============================================
+### PASO 1: ASESOR - Ver repuestos disponibles
+### ============================================
+GET {{baseUrl}}/inventory/items
+Authorization: Bearer {{token}}
+
+### ============================================
+### PASO 2: ASESOR - Crear orden de trabajo
+### ============================================
+POST {{baseUrl}}/work-orders
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "customer": "CUSTOMER_ID_AQUI",
+  "vehicle": "VEHICLE_ID_AQUI",
+  "motivo": "Mantenimiento preventivo - Cambio de filtros",
+  "kilometraje": 50000,
+  "tecnicoAsignado": "TECNICO_ID_AQUI",
+  "estado": "ESTADO_RECIBIDO_ID",
+  "prioridad": "normal"
+}
+
+### Guardar workOrderId de la respuesta
+
+### ============================================
+### PASO 3: ASESOR - Agregar repuesto a la orden
+### ============================================
+### Esto crea la RESERVA en estado "activo"
+POST {{baseUrl}}/work-orders/WORK_ORDER_ID/items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "type": "part",
+  "part": "ITEM_ID_FILTRO_ACEITE",
+  "quantity": 2,
+  "unitPrice": 45000,
+  "notes": "Filtro de aceite Bosch para mantenimiento"
+}
+
+### La respuesta incluirá el item con su reserva
+### Guardar: itemId y reservaId
+
+### ============================================
+### PASO 4: ASESOR - Ver reservas activas (sin orden de salida)
+### ============================================
+GET {{baseUrl}}/inventory/reservations/activas
+Authorization: Bearer {{token}}
+
+### Aquí verás la reserva creada en estado "activo"
+
+### ============================================
+### PASO 5: ALMACENISTA - Generar orden de salida
+### ============================================
+### El almacenista ve la reserva y genera la orden de salida
+POST {{baseUrl}}/inventory/reservations/RESERVA_ID/generar-orden-salida
+Authorization: Bearer {{token}}
+
+### Respuesta incluye número de orden de salida (ej: SAL-ABC12345)
+### Estado cambia a "pendiente_retiro"
+
+### ============================================
+### PASO 6: ALMACENISTA - Ver órdenes de salida pendientes
+### ============================================
+GET {{baseUrl}}/inventory/reservations/pendientes
+Authorization: Bearer {{token}}
+
+### Lista todas las reservas en estado "pendiente_retiro"
+### El almacenista prepara físicamente el repuesto
+
+### ============================================
+### PASO 7: ALMACENISTA - Entregar repuesto al técnico
+### ============================================
+### El almacenista entrega el repuesto y registra quién lo recibe
+POST {{baseUrl}}/inventory/reservations/RESERVA_ID/entregar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "recibidoPor": "TECNICO_ID_AQUI",
+  "notas": "Entregado 2 filtros de aceite Bosch para OT-2025-001"
+}
+
+### AQUÍ SE DESCUENTA EL STOCK
+### Estado cambia a "consumido"
+### Se crea movimiento de "salida" en inventario
+
+### ============================================
+### PASO 8: Verificar movimiento de salida
+### ============================================
+GET {{baseUrl}}/inventory/movements?tipo=salida&referenciaTipo=workOrder
+Authorization: Bearer {{token}}
+
+### Verás el movimiento con:
+### - tipo: "salida"
+### - cantidad descontada
+### - warehouse de origen
+### - referencia a la OT
+
+### ============================================
+### PASO 9: Verificar stock actualizado
+### ============================================
+GET {{baseUrl}}/inventory/stock
+Authorization: Bearer {{token}}
+
+### El stock del filtro de aceite debe estar reducido
+
+### ============================================
+### PASO 10: TÉCNICO - Completar instalación y actualizar item
+### ============================================
+PUT {{baseUrl}}/work-orders/items/ITEM_ID
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "estado": "completado",
+  "notas": "Filtro instalado correctamente"
+}
+
+### ============================================
+### PASO 11: ASESOR - Cerrar orden de trabajo
+### ============================================
+PUT {{baseUrl}}/work-orders/WORK_ORDER_ID/cambiar-estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nuevoEstado": "CERRADA_FACTURADA",
+  "notas": "Trabajo completado satisfactoriamente"
+}
+
+### Esto generará la factura automáticamente
+### Verifica que todas las reservas estén consumidas
+
+### ============================================
+### CONSULTAS ADICIONALES ÚTILES
+### ============================================
+
+### Ver todas las reservas
+GET {{baseUrl}}/inventory/reservations
+Authorization: Bearer {{token}}
+
+### Ver historial completo de movimientos
+GET {{baseUrl}}/inventory/movements
+Authorization: Bearer {{token}}
+
+### Ver stock por almacén
+GET {{baseUrl}}/inventory/stock?warehouse=WAREHOUSE_ID
+Authorization: Bearer {{token}}
+
+### Ver items de una orden de trabajo
+GET {{baseUrl}}/work-orders/WORK_ORDER_ID/items
+Authorization: Bearer {{token}}
+
+### ============================================
+### CASO ESPECIAL: Cancelar orden de trabajo
+### ============================================
+### Si la OT se cancela ANTES de entregar el repuesto
+PUT {{baseUrl}}/work-orders/WORK_ORDER_ID/cambiar-estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nuevoEstado": "CANCELADA",
+  "notas": "Cliente canceló el servicio"
+}
+
+### Las reservas en estado "activo" se liberan automáticamente
+### El stock vuelve a estar disponible
+
+### ============================================
+### EJEMPLO CON IDs REALES DEL SEEDER
+### ============================================
+### Después de correr el seeder, usa estos endpoints:
+
+### 1. Ver repuestos disponibles
+GET {{baseUrl}}/inventory/items
+Authorization: Bearer {{token}}
+
+### 2. Ver almacenes
+GET {{baseUrl}}/inventory/warehouses
+Authorization: Bearer {{token}}
+
+### 3. Ver stock inicial
+GET {{baseUrl}}/inventory/stock
+Authorization: Bearer {{token}}
+
+### Copia los IDs reales de la respuesta y úsalos en los pasos anteriores

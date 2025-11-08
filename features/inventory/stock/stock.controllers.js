@@ -1,6 +1,22 @@
 const { response, request } = require("express");
 const { Stock } = require("../models");
+const buildUpdateWithHistorial = require("../../../helpers/build-update-with-historial");
 
+const populateOptions = [
+  {
+    path: "item",
+    select: "nombre",
+  },
+  {
+    path: "warehouse",
+    select: "nombre",
+  },
+
+  {
+    path: "historial",
+    populate: { path: "modificadoPor", select: "nombre correo" },
+  },
+];
 const stockGetAll = async (req = request, res = response, next) => {
   try {
     const query = { eliminado: false };
@@ -9,7 +25,7 @@ const stockGetAll = async (req = request, res = response, next) => {
 
     const [total, stocks] = await Promise.all([
       Stock.countDocuments(query),
-      Stock.find(query).populate(["item", "warehouse"]),
+      Stock.find(query).populate(populateOptions),
     ]);
     res.json({ total, stocks });
   } catch (err) {
@@ -20,17 +36,15 @@ const stockGetAll = async (req = request, res = response, next) => {
 const stockGetById = async (req = request, res = response, next) => {
   try {
     const { id } = req.params;
-    const stock = await Stock.findOne({ _id: id, eliminado: false }).populate([
-      "item",
-      "warehouse",
-    ]);
+    const stock = await Stock.findOne({ _id: id, eliminado: false }).populate(
+      populateOptions
+    );
     if (!stock) return res.status(404).json({ msg: "Stock no encontrado" });
     res.json(stock);
   } catch (err) {
     next(err);
   }
 };
-
 const stockPost = async (req = request, res = response, next) => {
   try {
     const data = req.body;
@@ -46,7 +60,12 @@ const stockPost = async (req = request, res = response, next) => {
       stock = new Stock({ ...data, createdBy: req.usuario?._id });
     }
     await stock.save();
-    res.status(201).json(stock);
+
+    // Populate the saved stock before returning
+    const populatedStock = await Stock.findById(stock._id).populate(
+      populateOptions
+    );
+    res.status(201).json(populatedStock);
   } catch (err) {
     next(err);
   }
@@ -56,11 +75,16 @@ const stockPut = async (req = request, res = response, next) => {
   try {
     const { id } = req.params;
     const { _id, eliminado, ...rest } = req.body;
+    const update = buildUpdateWithHistorial({
+      rest,
+      extraSetFields: {},
+      historialEntry: { modificadoPor: req.usuario?._id },
+    });
     const updated = await Stock.findOneAndUpdate(
       { _id: id, eliminado: false },
-      { ...rest, $push: { historial: { modificadoPor: req.usuario?._id } } },
+      update,
       { new: true, runValidators: true }
-    );
+    ).populate(populateOptions);
     if (!updated) return res.status(404).json({ msg: "Stock no encontrado" });
     res.json(updated);
   } catch (err) {

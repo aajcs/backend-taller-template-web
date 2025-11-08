@@ -1,13 +1,13 @@
 /**
  * Tenant Resolver Middleware
- * Resuelve el taller (workshop) activo para la request y valida permisos
- * Uso: app.use('/api/inventory', tenantResolver, require('../features/inventory'));
+ * Resuelve el taller (autoSys) activo para la request y valida permisos
+ * Uso: app.use('/api/inventory', tenantResolver, require('../features/autoSys'));
  */
 
 const Usuario = require("../../models/user");
 
 /**
- * Middleware que valida y resuelve el taller/workshop del usuario
+ * Middleware que valida y resuelve el taller/autoSys del usuario
  * Lee del header 'x-taller-id' o del JWT (req.usuario.idRefineria)
  * Inyecta req.taller para uso en controllers/services
  */

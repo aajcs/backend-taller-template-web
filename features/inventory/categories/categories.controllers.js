@@ -1,5 +1,6 @@
 const { response, request } = require("express");
 const { Category } = require("../models");
+const buildUpdateWithHistorial = require("../../../helpers/build-update-with-historial");
 
 const categoriesGet = async (req = request, res = response, next) => {
   try {
@@ -43,7 +44,11 @@ const categoryPut = async (req = request, res = response, next) => {
     const { _id, eliminado, ...rest } = req.body;
     const updated = await Category.findOneAndUpdate(
       { _id: id, eliminado: false },
-      { ...rest, $push: { historial: { modificadoPor: req.usuario?._id } } },
+      buildUpdateWithHistorial({
+        rest,
+        extraSetFields: {},
+        historialEntry: { modificadoPor: req.usuario?._id },
+      }),
       { new: true, runValidators: true }
     );
     if (!updated)

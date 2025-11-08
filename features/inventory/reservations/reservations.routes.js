@@ -13,8 +13,32 @@ const {
   reservationDelete,
 } = require("./reservations.controllers");
 
+const {
+  generarOrdenSalida,
+  entregarRepuesto,
+  getReservasPendientes,
+  getReservasActivas,
+} = require("./reservationActions.controller");
+
 const router = Router();
 router.use(validarJWT);
+
+// Rutas para gestión de órdenes de salida y entregas
+router.get("/activas", getReservasActivas);
+router.get("/pendientes", getReservasPendientes);
+router.post("/:reservaId/generar-orden-salida", generarOrdenSalida);
+router.post(
+  "/:reservaId/entregar",
+  [
+    check("recibidoPor", "Debe especificar quién recibe el repuesto")
+      .not()
+      .isEmpty(),
+    validarCampos,
+  ],
+  entregarRepuesto
+);
+
+// Rutas CRUD básicas
 router.get("/", reservationsGet);
 router.get(
   "/:id",

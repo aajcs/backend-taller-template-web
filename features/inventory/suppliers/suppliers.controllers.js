@@ -1,5 +1,6 @@
 const { response, request } = require("express");
 const { Supplier } = require("../models");
+const buildUpdateWithHistorial = require("../../../helpers/build-update-with-historial");
 
 const suppliersGet = async (req = request, res = response, next) => {
   try {
@@ -35,9 +36,14 @@ const supplierPut = async (req = request, res = response, next) => {
   try {
     const { id } = req.params;
     const { _id, eliminado, ...rest } = req.body;
+    const update = buildUpdateWithHistorial({
+      rest,
+      extraSetFields: {},
+      historialEntry: { modificadoPor: req.usuario?._id },
+    });
     const updated = await Supplier.findOneAndUpdate(
       { _id: id, eliminado: false },
-      { ...rest, $push: { historial: { modificadoPor: req.usuario?._id } } },
+      update,
       { new: true, runValidators: true }
     );
     if (!updated)

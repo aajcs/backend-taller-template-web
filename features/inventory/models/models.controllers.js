@@ -44,7 +44,11 @@ const modelPut = async (req = request, res = response, next) => {
     const { _id, eliminado, ...rest } = req.body;
     const updated = await Model.findOneAndUpdate(
       { _id: id, eliminado: false },
-      { ...rest, $push: { historial: { modificadoPor: req.usuario?._id } } },
+      buildUpdateWithHistorial({
+        rest,
+        extraSetFields: {},
+        historialEntry: { modificadoPor: req.usuario?._id },
+      }),
       { new: true, runValidators: true }
     );
     if (!updated) return res.status(404).json({ msg: "Modelo no encontrado" });

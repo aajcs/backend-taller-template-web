@@ -1,5 +1,5 @@
 // controllers/notificationToken.js
-const Usuario = require("../models/user");
+const Usuario = require("../features/user/user.models");
 
 // Controlador para guardar o actualizar tokens de notificación push
 const saveToken = async (req, res, next) => {

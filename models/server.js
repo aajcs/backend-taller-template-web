@@ -1,3 +1,4 @@
+// Librerías externas
 const express = require("express");
 const http = require("http");
 const socketio = require("socket.io");
@@ -5,10 +6,14 @@ const cors = require("cors");
 const fileUpload = require("express-fileupload");
 const admin = require("firebase-admin");
 
+// Configuración de base de datos
 const { dbConnection } = require("../database/config");
+
+// Modelos y sockets
 const Sockets = require("./sockets");
+
+// Middlewares
 const errorHandler = require("../middlewares/error-handler");
-// (bunkering-related modules were removed from this file)
 
 // Inicializa Firebase Admin solo si no está inicializado
 if (!admin.apps.length) {
@@ -24,47 +29,24 @@ class Server {
     this.app = express();
     this.port = process.env.PORT;
 
-    // Definición de rutas
+    // Definición de rutas de la API
     this.paths = {
+      // Features Core
       auth: "/api/auth",
-      buscar: "/api/buscar",
-      balance: "/api/balance",
-      categorias: "/api/categorias",
-      producto: "/api/producto",
       user: "/api/user",
-      uploads: "/api/uploads",
-      workshop: "/api/workshop",
+      autoSys: "/api/autoSys",
       inventory: "/api/inventory",
-      refinerias: "/api/refinerias",
-      lineaCarga: "/api/lineaCarga",
-      lineaDespacho: "/api/lineaDespacho",
-      bomba: "/api/bomba",
-      tanque: "/api/tanque",
-      torre: "/api/torre",
-      contrato: "/api/contrato",
-      contacto: "/api/contacto",
-      recepcion: "/api/recepcion",
-      refinacion: "/api/refinacion",
-      despacho: "/api/despacho",
-      chequeoCalidad: "/api/chequeoCalidad",
-      chequeoCantidad: "/api/chequeoCantidad",
-      historial: "/api/historial",
-      costo: "/api/costo",
-      refinacionSalida: "/api/refinacionSalida",
-      ventana: "/api/ventana",
-      tipoProducto: "/api/tipoProducto",
-      simulacion: "/api/simulacion",
-      partida: "/api/partida",
-      operador: "/api/operador",
-      factura: "/api/factura",
-      corteRefinacion: "/api/corteRefinacion",
-      cuenta: "/api/cuenta",
-      abono: "/api/abono",
-      lineaFactura: "/api/lineaFactura",
-      notification: "/api/notification",
-    };
 
-    // Conectar a base de datos
+      // CRM
+      vehicles: "/api/vehicles",
+      customers: "/api/customers",
+
+      // Utilidades
+      buscar: "/api/buscar",
+      historial: "/api/historial",
+      uploads: "/api/uploads",
+      notification: "/api/notification",
+    }; // Conectar a base de datos
     this.conectarDB();
 
     // Middlewares
@@ -123,76 +105,65 @@ class Server {
   }
 
   routes() {
-    // Rutas de autenticación y usuarios (desde features/)
+    // ============================================
+    // Rutas de Features Core
+    // ============================================
+
+    // Autenticación y usuarios
     this.app.use(this.paths.auth, require("../features/auth"));
     this.app.use(this.paths.user, require("../features/user"));
-    this.app.use(this.paths.workshop, require("../features/workshop"));
-    // Inventory feature
+
+    // Sistema automático
+    this.app.use(this.paths.autoSys, require("../features/autoSys"));
+
+    // Inventario
     this.app.use(this.paths.inventory, require("../features/inventory"));
 
-    // Rutas de gestión general
-    this.app.use(this.paths.ventana, require("../routes/ventana"));
+    // ============================================
+    // Rutas de CRM
+    // ============================================
+
+    // Gestión de vehículos
+    this.app.use(this.paths.vehicles, require("../features/crm/vehicles"));
+
+    // Gestión de clientes
+    this.app.use(this.paths.customers, require("../features/crm/customers"));
+
+    // ============================================
+    // Rutas del Módulo Workshop - Work Orders
+    // ============================================
+
+    // Módulo completo de órdenes de trabajo
+    this.app.use("/api", require("../features/workshop/work-orders"));
+
+    // ============================================
+    // Rutas del Módulo Workshop - Billing
+    // ============================================
+
+    // Módulo completo de facturación
+    this.app.use("/api", require("../features/workshop/billing"));
+
+    // ============================================
+    // Rutas de Utilidades Generales
+    // ============================================
+
+    // Búsqueda general
     this.app.use(this.paths.buscar, require("../routes/buscar"));
-    this.app.use(this.paths.categorias, require("../routes/categorias"));
-    this.app.use(this.paths.costo, require("../routes/costo"));
+
+    // Historial
     this.app.use(this.paths.historial, require("../routes/historial"));
-    this.app.use(this.paths.producto, require("../routes/producto"));
-    this.app.use(this.paths.tipoProducto, require("../routes/tipoProducto"));
-    this.app.use(this.paths.simulacion, require("../routes/simulacion"));
-    this.app.use(this.paths.partida, require("../routes/partida"));
-    this.app.use(this.paths.cuenta, require("../routes/cuenta"));
 
-    // Rutas relacionadas con el módulo de cuentas
-    this.app.use(this.paths.operador, require("../routes/operador"));
-
-    // Rutas relacionadas con el módulo de finanzas
-    this.app.use(this.paths.factura, require("../routes/factura"));
-    this.app.use(this.paths.balance, require("../routes/balance"));
-    this.app.use(this.paths.abono, require("../routes/abono"));
-    this.app.use(this.paths.lineaFactura, require("../routes/lineaFactura"));
-
-    // Rutas relacionadas con operaciones de calidad y cantidad
-    this.app.use(
-      this.paths.chequeoCalidad,
-      require("../routes/chequeoCalidad")
-    );
-    this.app.use(
-      this.paths.chequeoCantidad,
-      require("../routes/chequeoCantidad")
-    );
-
-    // Rutas específicas de refinación y despacho
-    this.app.use(this.paths.despacho, require("../routes/despacho"));
-    this.app.use(this.paths.recepcion, require("../routes/recepcion"));
-    this.app.use(this.paths.refinacion, require("../routes/refinacion"));
-    this.app.use(
-      this.paths.refinacionSalida,
-      require("../routes/refinacionSalida")
-    );
-    this.app.use(this.paths.refinerias, require("../routes/refinerias"));
-    this.app.use(
-      this.paths.corteRefinacion,
-      require("../routes/corteRefinacion")
-    );
-
-    // Rutas de infraestructura
-    this.app.use(this.paths.bomba, require("../routes/bomba"));
-    this.app.use(this.paths.lineaCarga, require("../routes/lineaCarga"));
-    this.app.use(this.paths.lineaDespacho, require("../routes/lineaDespacho"));
-    this.app.use(this.paths.tanque, require("../routes/tanque"));
-    this.app.use(this.paths.torre, require("../routes/torre"));
-
-    // Rutas relacionadas con contactos y contratos
-    this.app.use(this.paths.contacto, require("../routes/contacto"));
-    this.app.use(this.paths.contrato, require("../routes/contrato"));
-
-    // Rutas de archivos y cargas
+    // Carga de archivos
     this.app.use(this.paths.uploads, require("../routes/uploads"));
 
-    // (Se eliminaron las rutas y requerimientos relacionados con bunkering)
+    // Notificaciones
     this.app.use(this.paths.notification, require("../routes/notification"));
 
-    // Rutas FCM
+    // ============================================
+    // Rutas de Firebase Cloud Messaging (FCM)
+    // ============================================
+
+    // Enviar notificación push
     this.app.post("/api/send-notification", async (req, res) => {
       try {
         const { token, title, body } = req.body;
@@ -213,7 +184,8 @@ class Server {
       }
     });
 
-    this.app.use("/api/save-token", require("../routes/notificationToken")); // Router dedicado para guardar tokens
+    // Guardar token de notificaciones
+    this.app.use("/api/save-token", require("../routes/notificationToken"));
   }
 
   configurarSockets() {

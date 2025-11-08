@@ -3,7 +3,6 @@ const { response, request } = require("express"); // Importa objetos de Express 
 const bcryptjs = require("bcryptjs"); // Librería para encriptar contraseñas
 const populateOptions = [
   { path: "createdBy", select: "nombre correo" }, // Popula quién creó la torre
-  { path: "idRefineria", select: "nombre" },
   {
     path: "historial",
     populate: { path: "modificadoPor", select: "nombre correo" },
@@ -74,14 +73,13 @@ const userPost = async (req, res = response, next) => {
     rol,
     estado,
     acceso,
-    idRefineria,
+
     departamento,
     telefono,
   } = req.body;
 
   // Crea una nueva instancia del modelo Usuario con los datos proporcionados
   const user = new Usuario({
-    idRefineria,
     nombre,
     correo,
     password,

@@ -13,10 +13,7 @@ const login = async (req, res = response, next) => {
 
   try {
     // Verificar si el correo existe
-    const usuario = await Usuario.findOne({ correo }).populate(
-      "idRefineria",
-      "nombre"
-    ); // Busca el usuario por correo y popula la refinería
+    const usuario = await Usuario.findOne({ correo }).populate("nombre"); // Busca el usuario por correo y popula la refinería
     if (!usuario) {
       return res.status(400).json({
         msg: "Usuario / Password no son correctos - correo", // Error si el correo no existe
@@ -109,14 +106,13 @@ const register = async (req, res = response, next) => {
     rol,
     estado,
     acceso,
-    idRefineria,
+
     departamento,
     telefono,
   } = req.body;
 
   // Crea una nueva instancia del modelo Usuario con los datos proporcionados
   const usuario = new Usuario({
-    idRefineria,
     nombre,
     correo,
     password,

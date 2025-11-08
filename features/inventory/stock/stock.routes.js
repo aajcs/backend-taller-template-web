@@ -12,9 +12,27 @@ const {
   stockPut,
   stockDelete,
 } = require("./stock.controllers");
+const {
+  getItemsBelowMinimum,
+  checkItemAlert,
+  generateStockReport,
+  getSuggestedPurchaseOrders,
+} = require("./stockAlerts.controllers");
 const router = Router();
 
 router.use(validarJWT);
+
+// Rutas de alertas de stock mínimo
+router.get("/alerts/below-minimum", getItemsBelowMinimum);
+router.get(
+  "/alerts/item/:itemId",
+  [check("itemId", "No es un id de Mongo válido").isMongoId(), validarCampos],
+  checkItemAlert
+);
+router.get("/alerts/report", generateStockReport);
+router.get("/alerts/purchase-suggestions", getSuggestedPurchaseOrders);
+
+// Rutas CRUD de stock
 router.get("/", stockGetAll);
 router.get(
   "/:id",

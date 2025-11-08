@@ -1,5 +1,6 @@
 const { response, request } = require("express");
 const { Brand } = require("../models");
+const buildUpdateWithHistorial = require("../../../helpers/build-update-with-historial");
 
 const brandsGet = async (req = request, res = response, next) => {
   try {
@@ -40,9 +41,14 @@ const brandPut = async (req = request, res = response, next) => {
   try {
     const { id } = req.params;
     const { _id, eliminado, ...rest } = req.body;
+    const update = buildUpdateWithHistorial({
+      rest,
+      extraSetFields: {},
+      historialEntry: { modificadoPor: req.usuario?._id },
+    });
     const updated = await Brand.findOneAndUpdate(
       { _id: id, eliminado: false },
-      { ...rest, $push: { historial: { modificadoPor: req.usuario?._id } } },
+      update,
       { new: true, runValidators: true }
     );
     if (!updated) return res.status(404).json({ msg: "Marca no encontrada" });

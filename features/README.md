@@ -35,7 +35,7 @@ feature-name/
 
 - **Carpetas**: singular (`user`, `workshop`, `inventory`)
 - **Archivos**: `feature.tipo.js` (ej: `user.routes.js`, `inventory.controller.js`)
-- **Rutas públicas**: plural (`/api/users`, `/api/workshops`, `/api/inventory`)
+- **Rutas públicas**: plural (`/api/users`, `/api/autoSys`, `/api/inventory`)
 - **Modelos**: singular con mayúscula (`User`, `Workshop`, `InventoryItem`)
 
 ### 4. Exportación en `index.js`

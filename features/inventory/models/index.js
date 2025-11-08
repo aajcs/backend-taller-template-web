@@ -4,7 +4,7 @@ module.exports = {
   Item: require("../items/item.models"),
   Stock: require("../stock/stock.models"),
   Movement: require("../movements/movement.models"),
-  PurchaseOrder: require("../orders/purchaseOrder.models"),
+  PurchaseOrder: require("../purchaseOrders/purchaseOrder.models"),
   Supplier: require("../suppliers/supplier.models"),
   Warehouse: require("../warehouses/warehouse.models"),
   Reservation: require("../reservations/reservation.models"),
@@ -13,4 +13,6 @@ module.exports = {
   ItemModel: require("../models/model.models"),
   Model: require("../models/model.models"),
   Category: require("../categories/category.models"),
+  Unit: require("../units/unit.models"),
+  StockAlert: require("../notifications/stockAlert.models"),
 };

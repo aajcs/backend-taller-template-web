@@ -9,6 +9,13 @@ const WarehouseSchema = new Schema(
       trim: true,
       unique: true,
     },
+    codigo: {
+      type: String,
+      required: [true, "El código es obligatorio"],
+      trim: true,
+      unique: true,
+      uppercase: true,
+    },
     ubicacion: { type: String },
     tipo: {
       type: String,

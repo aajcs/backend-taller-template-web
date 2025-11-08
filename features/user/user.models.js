@@ -3,12 +3,6 @@ const auditPlugin = require("../../models/plugins/audit");
 
 const UserSchema = Schema(
   {
-    idRefineria: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "Refineria",
-      },
-    ],
     img: {
       type: String,
     },

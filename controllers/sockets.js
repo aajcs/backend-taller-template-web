@@ -1,11 +1,10 @@
 // Importación del modelo User
-const User = require("../models/user"); // Modelo User para interactuar con la base de datos
-// const Mensaje = require("../models/mensaje"); // (Comentado) Modelo Mensaje para manejar mensajes (si se implementa en el futuro)
+const Usuario = require("../features/user/user.models");
 
 // Función para marcar un usuario como conectado
 const userConnected = async (id) => {
   // Busca al usuario por su ID en la base de datos
-  const user = await User.findById(id);
+  const user = await Usuario.findById(id);
   if (!user) {
     return false; // Retorna false si el usuario no existe
   }
@@ -20,7 +19,7 @@ const userConnected = async (id) => {
 // Función para marcar un usuario como desconectado
 const userDisconnected = async (id) => {
   // Busca al usuario por su ID en la base de datos
-  const user = await User.findById(id);
+  const user = await Usuario.findById(id);
   if (!user) {
     return false; // Retorna false si el usuario no existe
   }
@@ -35,7 +34,7 @@ const userDisconnected = async (id) => {
 // Función para obtener todos los usuarios ordenados por su estado (online primero)
 const getUsers = async () => {
   // Busca todos los usuarios y los ordena por el campo "online" en orden descendente
-  const users = await User.find().sort("-online");
+  const users = await Usuario.find().sort("-online");
 
   return users; // Retorna la lista de usuarios
 };

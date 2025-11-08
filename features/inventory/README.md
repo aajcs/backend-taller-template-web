@@ -17,7 +17,7 @@ Endpoints disponibles (principales):
 - /api/inventory/items
 - /api/inventory/stock
 - /api/inventory/movements
-- /api/inventory/orders
+- /api/inventory/purchaseOrders
 - /api/inventory/suppliers
 - /api/inventory/warehouses
 - /api/inventory/reservations

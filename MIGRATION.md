@@ -15,7 +15,7 @@ features/
 │   ├── user.models.js
 │   ├── user.routes.js
 │   └── index.js
-├── workshop/                  # ⏳ Wrapper creado (pendiente migración)
+├── autoSys/                  # ⏳ Wrapper creado (pendiente migración)
 │   └── index.js
 ├── inventory/                 # ⏳ Wrapper creado (pendiente migración)
 │   └── index.js
@@ -75,7 +75,7 @@ Centraliza exportaciones de middlewares para imports limpios.
 
 ### 4. Wrappers para Compatibilidad
 
-Los features `workshop`, `inventory`, `finance` tienen wrappers que re-exportan desde `routes/`:
+Los features `autoSys`, `inventory`, `finance` tienen wrappers que re-exportan desde `routes/`:
 
 - Permite migración gradual sin romper código existente
 - Cuando migres el código, reemplaza el wrapper por el router real
@@ -103,7 +103,7 @@ Mover todos los módulos de una vez:
 
 ### Módulos Pendientes de Migrar
 
-- `workshop` (refinerías/talleres) - Base del sistema
+- `autoSys` (refinerías/talleres) - Base del sistema
 - `inventory` (inventario)
 - `finance` (factura, abono, balance, cuenta, lineaFactura, costo)
 - `workorder` (si aplica - órdenes de trabajo)
@@ -144,9 +144,9 @@ curl -X GET http://localhost:PORT/api/users \
 
 ### Nombres
 
-- **Carpetas**: singular (`user`, `workshop`, `inventory`)
+- **Carpetas**: singular (`user`, `autoSys`, `inventory`)
 - **Archivos**: `<feature>.<tipo>.js` (ej: `user.routes.js`, `inventory.controller.js`)
-- **Rutas públicas**: plural (`/api/users`, `/api/workshops`)
+- **Rutas públicas**: plural (`/api/users`, `/api/autoSys`)
 - **Modelos Mongoose**: singular con mayúscula (`User`, `Workshop`)
 
 ### Estructura de Feature

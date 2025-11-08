@@ -14,7 +14,7 @@ const checks = [
   // Estructura de carpetas
   { path: "features/auth", type: "dir", desc: "Carpeta auth" },
   { path: "features/user", type: "dir", desc: "Carpeta user" },
-  { path: "features/workshop", type: "dir", desc: "Carpeta workshop" },
+  { path: "features/autoSys", type: "dir", desc: "Carpeta autoSys" },
   { path: "features/inventory", type: "dir", desc: "Carpeta inventory" },
   { path: "features/finance", type: "dir", desc: "Carpeta finance" },
   { path: "core/middleware", type: "dir", desc: "Carpeta core/middleware" },

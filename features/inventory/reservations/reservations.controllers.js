@@ -1,12 +1,27 @@
 const { response, request } = require("express");
 const { Reservation } = require("../models");
+const buildUpdateWithHistorial = require("../../../helpers/build-update-with-historial");
+
+const populateOptions = [
+  {
+    path: "item",
+    select: "nombre",
+  },
+  {
+    path: "warehouse",
+    select: "nombre",
+  },
+  {
+    path: "historial",
+    populate: { path: "modificadoPor", select: "nombre correo" },
+  },
+];
 
 const reservationsGet = async (req = request, res = response, next) => {
   try {
-    const rows = await Reservation.find({ eliminado: false }).populate([
-      "item",
-      "warehouse",
-    ]);
+    const rows = await Reservation.find({ eliminado: false }).populate(
+      populateOptions
+    );
     res.json({ total: rows.length, reservations: rows });
   } catch (err) {
     next(err);
@@ -17,7 +32,7 @@ const reservationGetById = async (req = request, res = response, next) => {
     const r = await Reservation.findOne({
       _id: req.params.id,
       eliminado: false,
-    }).populate(["item", "warehouse"]);
+    }).populate(populateOptions);
     if (!r) return res.status(404).json({ msg: "Reserva no encontrada" });
     res.json(r);
   } catch (err) {
@@ -30,7 +45,10 @@ const reservationPost = async (req = request, res = response, next) => {
     data.reservadoPor = req.usuario?._id;
     const r = new Reservation(data);
     await r.save();
-    res.status(201).json(r);
+    const populatedReservation = await Reservation.findById(r._id).populate(
+      populateOptions
+    );
+    res.status(201).json(populatedReservation);
   } catch (err) {
     next(err);
   }
@@ -39,13 +57,22 @@ const reservationPut = async (req = request, res = response, next) => {
   try {
     const { id } = req.params;
     const { _id, eliminado, ...rest } = req.body;
+    const update = buildUpdateWithHistorial({
+      rest,
+      extraSetFields: {},
+      historialEntry: { modificadoPor: req.usuario?._id },
+    });
     const updated = await Reservation.findOneAndUpdate(
       { _id: id, eliminado: false },
-      { ...rest, $push: { historial: { modificadoPor: req.usuario?._id } } },
+      update,
       { new: true, runValidators: true }
     );
     if (!updated) return res.status(404).json({ msg: "Reserva no encontrada" });
-    res.json(updated);
+
+    const populatedReservation = await Reservation.findById(
+      updated._id
+    ).populate(populateOptions);
+    res.json(populatedReservation);
   } catch (err) {
     next(err);
   }
