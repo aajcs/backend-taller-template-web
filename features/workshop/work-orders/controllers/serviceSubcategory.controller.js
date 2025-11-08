@@ -2,27 +2,38 @@ const { response, request } = require("express");
 const { ServiceSubcategory, ServiceCategory, Service } = require("../models");
 const { validationResult } = require("express-validator");
 
-// Obtener subcategorías por categoría
+// Obtener subcategorías (todas o por categoría)
 const getServiceSubcategories = async (req = request, res = response) => {
   try {
     const { categoryId } = req.params;
-    const { activo = true, sortBy = "orden", sortOrder = "asc" } = req.query;
+    const { category, activo, sortBy = "orden", sortOrder = "asc" } = req.query;
 
-    // Verificar que la categoría existe
-    const category = await ServiceCategory.findById(categoryId);
-    if (!category || category.eliminado) {
-      return res.status(404).json({
-        success: false,
-        message: "Categoría no encontrada",
-      });
+    // Si viene categoryId en params o category en query, verificar que existe
+    const filterCategoryId = categoryId || category;
+
+    if (filterCategoryId) {
+      const categoryExists = await ServiceCategory.findById(filterCategoryId);
+      if (!categoryExists || categoryExists.eliminado) {
+        return res.status(404).json({
+          success: false,
+          message: "Categoría no encontrada",
+        });
+      }
     }
 
     const filters = {
-      categoria: categoryId,
-      eliminado: false,
+      $or: [{ eliminado: false }, { eliminado: { $exists: false } }],
     };
 
-    if (activo !== undefined) filters.activo = activo === "true";
+    // Filtrar por categoría si se proporciona
+    if (filterCategoryId) {
+      filters.categoria = filterCategoryId;
+    }
+
+    // Filtrar por activo si se proporciona
+    if (activo !== undefined && activo !== "all") {
+      filters.activo = activo === "true" || activo === true;
+    }
 
     const sortOptions = {};
     sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;

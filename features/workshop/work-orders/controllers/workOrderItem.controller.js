@@ -8,6 +8,10 @@ const { validationResult } = require("express-validator");
 // Obtener items de una orden de trabajo específica
 const getWorkOrderItems = async (req = request, res = response) => {
   try {
+    console.log("🔍 DEBUG - req.params:", req.params);
+    console.log("🔍 DEBUG - req.url:", req.url);
+    console.log("🔍 DEBUG - req.baseUrl:", req.baseUrl);
+    console.log("🔍 DEBUG - req.originalUrl:", req.originalUrl);
     const { workOrderId } = req.params;
     const { page = 1, limit = 50, status } = req.query;
 

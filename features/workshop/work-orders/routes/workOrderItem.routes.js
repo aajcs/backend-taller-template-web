@@ -20,13 +20,30 @@ const {
   existeWorkOrderItemPorId,
 } = require("../helpers/db-validators");
 
-const router = Router();
+// IMPORTANTE: mergeParams permite acceder a parámetros del router padre
+// Necesario para rutas anidadas como /api/work-orders/:workOrderId/items
+const router = Router({ mergeParams: true });
 
 /**
  * {{url}}/api/work-order-items
  */
 
-// Obtener items de una orden de trabajo - privado
+// Obtener items de una orden de trabajo - privado (RESTful nested route)
+// Ruta: GET /api/work-orders/:workOrderId/items
+// El workOrderId viene de la ruta padre gracias a mergeParams
+router.get(
+  "/",
+  [
+    validarJWT,
+    check("workOrderId", "No es un ID de Mongo válido").isMongoId(),
+    check("workOrderId").custom(existeWorkOrderPorId),
+    validarCampos,
+  ],
+  getWorkOrderItems
+);
+
+// Obtener items de una orden de trabajo - privado (Legacy route)
+// Ruta: GET /api/work-order-items/:workOrderId
 router.get(
   "/:workOrderId",
   [
@@ -93,6 +110,56 @@ router.post(
     check("part").if(check("type").equals("part")).custom(existeProductoPorId),
     validarCampos,
   ],
+  addWorkOrderItem
+);
+
+// Agregar item a una orden de trabajo (ruta legacy) - privado
+// POST /api/work-order-items/:workOrderId
+router.post(
+  "/:workOrderId",
+  [
+    validarJWT,
+    check("workOrderId", "No es un ID de Mongo válido").isMongoId(),
+    check("workOrderId").custom(existeWorkOrderPorId),
+    check("type", "El tipo es obligatorio").not().isEmpty(),
+    check("type", 'El tipo debe ser "service" o "part"').isIn([
+      "service",
+      "part",
+    ]),
+    check("quantity", "La cantidad debe ser un número positivo")
+      .optional()
+      .isFloat({ min: 0.01 }),
+    check("unitPrice", "El precio unitario debe ser un número positivo")
+      .optional()
+      .isFloat({ min: 0 }),
+    check("notes", "Las notas deben ser texto").optional().isString(),
+    check("service")
+      .if(check("type").equals("service"))
+      .notEmpty()
+      .withMessage("El servicio es obligatorio"),
+    check("service")
+      .if(check("type").equals("service"))
+      .isMongoId()
+      .withMessage("No es un ID de Mongo válido"),
+    check("service")
+      .if(check("type").equals("service"))
+      .custom(existeServicePorId),
+    check("part")
+      .if(check("type").equals("part"))
+      .notEmpty()
+      .withMessage("La pieza es obligatoria"),
+    check("part")
+      .if(check("type").equals("part"))
+      .isMongoId()
+      .withMessage("No es un ID de Mongo válido"),
+    check("part").if(check("type").equals("part")).custom(existeProductoPorId),
+    validarCampos,
+  ],
+  // Middleware para inyectar workOrder en el body desde params
+  (req, res, next) => {
+    req.body.workOrder = req.params.workOrderId;
+    next();
+  },
   addWorkOrderItem
 );
 

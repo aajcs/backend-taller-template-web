@@ -42,6 +42,11 @@ const router = Router();
 // Obtener todas las órdenes de trabajo - privado
 router.get("/", [validarJWT], getWorkOrders);
 
+// IMPORTANTE: Rutas anidadas deben ir ANTES de /:id para evitar conflictos
+// Montar rutas de items (RESTful: /api/work-orders/:workOrderId/items)
+const workOrderItemRoutes = require("./workOrderItem.routes");
+router.use("/:workOrderId/items", workOrderItemRoutes);
+
 // Obtener historial de una orden de trabajo - privado
 router.get(
   "/:workOrderId/history",
