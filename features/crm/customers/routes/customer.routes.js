@@ -147,6 +147,9 @@ router.put(
     check("correo", "El correo no tiene un formato válido")
       .optional()
       .isEmail(),
+    check("correo")
+      .optional()
+      .custom(existeCustomerPorCorreo),
     check("direccion", "La dirección debe tener máximo 200 caracteres")
       .optional()
       .isLength({ max: 200 }),
@@ -159,7 +162,7 @@ router.put(
           (req.body.tipo === undefined && value)
         ) {
           esRifValido(value);
-          return existeCustomerPorRif(value);
+          return existeCustomerPorRif(value, { req });
         }
         return true;
       }),

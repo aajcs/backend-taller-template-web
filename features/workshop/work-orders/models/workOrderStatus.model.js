@@ -111,6 +111,12 @@ const workOrderStatusSchema = new Schema(
       min: [0, "El tiempo estimado no puede ser negativo"],
     },
 
+    // Nueva propiedad: indica si el estado aparece colapsado por defecto en la UI
+    collapsed: {
+      type: Boolean,
+      default: false, // Por defecto no colapsado (expandido)
+    },
+
     // Estado del registro
     activo: {
       type: Boolean,
@@ -171,34 +177,40 @@ workOrderStatusSchema.statics.getEstadosActivos = function () {
 };
 
 // Método para validar configuración de estados
-workOrderStatusSchema.statics.validarConfiguracionEstados = async function () {
+workOrderStatusSchema.statics.validarConfiguracionEstados = async function (
+  config = {}
+) {
   const estados = await this.find({ activo: true, eliminado: false });
 
   // Verificar que existe al menos un estado inicial
   const estadoInicial = estados.find((e) => e.tipo === "inicial");
   if (!estadoInicial) {
-    throw new Error("Debe existir al menos un estado inicial");
+    return { valid: false, message: "Debe existir al menos un estado inicial" };
   }
 
   // Verificar que existe al menos un estado final
   const estadoFinal = estados.find((e) => e.tipo === "final");
   if (!estadoFinal) {
-    throw new Error("Debe existir al menos un estado final");
+    return { valid: false, message: "Debe existir al menos un estado final" };
   }
 
-  // Verificar que las transiciones referencian estados existentes
-  for (const estado of estados) {
-    for (const transicion of estado.transicionesPermitidas) {
-      const estadoDestino = estados.find((e) => e.codigo === transicion);
-      if (!estadoDestino) {
-        throw new Error(
-          `El estado '${estado.nombre}' referencia una transición inválida: '${transicion}'`
-        );
+  // Verificar que las transiciones referencian estados existentes (solo si no se especifica skipTransitionValidation)
+  if (!config.skipTransitionValidation) {
+    for (const estado of estados) {
+      for (const transicion of estado.transicionesPermitidas || []) {
+        const estadoDestino = estados.find((e) => e.codigo === transicion);
+        if (!estadoDestino) {
+          // En lugar de throw, devolver objeto de error para compatibilidad
+          return {
+            valid: false,
+            message: `El estado '${estado.nombre}' referencia una transición inválida: '${transicion}'`,
+          };
+        }
       }
     }
   }
 
-  return true;
+  return { valid: true };
 };
 
 // Plugin de auditoría (si existe)

@@ -45,20 +45,20 @@ router.post(
   "/",
   [
     validarJWT,
-    check("name", "El nombre es obligatorio").not().isEmpty(),
-    check("name", "El nombre debe tener máximo 50 caracteres").isLength({
+    check("nombre", "El nombre es obligatorio").not().isEmpty(),
+    check("nombre", "El nombre debe tener máximo 50 caracteres").isLength({
       max: 50,
     }),
-    check("name").custom(existeServiceSubcategoryPorNombre),
+    check("nombre").custom(existeServiceSubcategoryPorNombre),
     check("description", "La descripción debe tener máximo 200 caracteres")
       .optional()
       .isLength({ max: 200 }),
-    check("category", "La categoría es obligatoria").not().isEmpty(),
+    check("categoria", "La categoría es obligatoria").not().isEmpty(),
     check(
-      "category",
+      "categoria",
       "La categoría debe ser un ID de Mongo válido"
     ).isMongoId(),
-    check("category").custom(existeServiceCategoryPorId),
+    check("categoria").custom(existeServiceCategoryPorId),
     check("color", "El color debe ser un código hexadecimal válido")
       .optional()
       .matches(/^#[0-9A-F]{6}$/i),
@@ -83,17 +83,17 @@ router.put(
     validarJWT,
     check("id", "No es un ID de Mongo válido").isMongoId(),
     check("id").custom(existeServiceSubcategoryPorId),
-    check("name", "El nombre debe tener máximo 50 caracteres")
+    check("nombre", "El nombre debe tener máximo 50 caracteres")
       .optional()
       .isLength({ max: 50 }),
-    check("name").optional().custom(existeServiceSubcategoryPorNombre),
+    check("nombre").optional().custom(existeServiceSubcategoryPorNombre),
     check("description", "La descripción debe tener máximo 200 caracteres")
       .optional()
       .isLength({ max: 200 }),
-    check("category", "La categoría debe ser un ID de Mongo válido")
+    check("categoria", "La categoría debe ser un ID de Mongo válido")
       .optional()
       .isMongoId(),
-    check("category").optional().custom(existeServiceCategoryPorId),
+    check("categoria").optional().custom(existeServiceCategoryPorId),
     check("color", "El color debe ser un código hexadecimal válido")
       .optional()
       .matches(/^#[0-9A-F]{6}$/i),

@@ -144,6 +144,32 @@ class Server {
     this.app.use("/api", require("../features/workshop/billing"));
 
     // ============================================
+    // Rutas del Módulo Workshop - Service Bay
+    // ============================================
+
+    // Gestión de bahías de servicio
+    this.app.use(
+      "/api/service-bays",
+      require("../features/workshop/service-bay/routes").serviceBayRoutes
+    );
+
+    // Asignaciones de técnicos a bahías
+    this.app.use(
+      "/api/work-orders",
+      require("../features/workshop/service-bay/routes").assignmentRoutes
+    );
+
+    // Reportes y dashboard
+    this.app.use(
+      "/api/dashboard",
+      require("../features/workshop/service-bay/routes").reportsRoutes
+    );
+    this.app.use(
+      "/api/reports",
+      require("../features/workshop/service-bay/routes").reportsRoutes
+    );
+
+    // ============================================
     // Rutas de Utilidades Generales
     // ============================================
 

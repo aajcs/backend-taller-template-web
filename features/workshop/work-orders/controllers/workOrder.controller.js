@@ -19,6 +19,7 @@ const getWorkOrders = async (req = request, res = response) => {
       priority,
       sortBy = "createdAt",
       sortOrder = "desc",
+      includeItems = true, // Nuevo parámetro opcional
     } = req.query;
 
     // Construir filtros
@@ -33,17 +34,38 @@ const getWorkOrders = async (req = request, res = response) => {
     const sortOptions = {};
     sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
 
+    // Configurar populate base
+    const populateOptions = [
+      { path: "customer", select: "nombre apellido correo telefono" },
+      { path: "vehicle", select: "marca modelo placa anio" },
+      { path: "tecnicoAsignado", select: "nombre apellido" },
+      { path: "estado", select: "codigo nombre color icono" },
+      { path: "assignments" },
+    ];
+
+    // Agregar populate de items si se solicita
+    if (includeItems === "true" || includeItems === true) {
+      populateOptions.push({
+        path: "items",
+        populate: [
+          {
+            path: "servicio",
+            select: "nombre descripcion precioBase tiempoEstimadoMinutos",
+          },
+          {
+            path: "repuesto",
+            select: "nombre codigo precio stock",
+          },
+        ],
+      });
+    }
+
     // Ejecutar consulta con paginación
     const options = {
       page: parseInt(page),
       limit: parseInt(limit),
       sort: sortOptions,
-      populate: [
-        { path: "customer", select: "nombre apellido correo telefono" },
-        { path: "vehicle", select: "marca modelo placa anio" },
-        { path: "tecnicoAsignado", select: "nombre apellido" },
-        { path: "estado", select: "codigo nombre color icono" },
-      ],
+      populate: populateOptions,
     };
 
     const workOrders = await WorkOrder.paginate(filters, options);
@@ -139,6 +161,9 @@ const createWorkOrder = async (req = request, res = response) => {
       diagnostico,
       observaciones,
       fechaEstimadaEntrega,
+      descuento = 0, // Nuevo: descuento
+      impuesto = 0, // Nuevo: impuesto
+      items = [], // Array de items (repuestos y servicios)
     } = req.body;
 
     // Generar número de orden único
@@ -167,11 +192,42 @@ const createWorkOrder = async (req = request, res = response) => {
       diagnostico,
       observaciones,
       fechaEstimadaEntrega,
+      descuento, // Nuevo: descuento
+      impuesto, // Nuevo: impuesto
       estado: estadoInicial._id,
     });
 
     // Guardar la orden de trabajo
     await workOrder.save();
+
+    // Crear los items de la orden de trabajo si se proporcionaron
+    let createdItems = [];
+    if (items && items.length > 0) {
+      const workOrderItems = items.map((item) => ({
+        workOrder: workOrder._id,
+        tipo: item.tipo,
+        [item.tipo === "repuesto" ? "repuesto" : "servicio"]:
+          item.tipo === "repuesto" ? item.repuesto : item.servicio,
+        nombre: item.nombre,
+        descripcion: item.descripcion,
+        cantidad: item.cantidad || 1,
+        precioUnitario:
+          item.precioUnitario || item.precioFinal / (item.cantidad || 1),
+        precioTotal: item.precioTotal || item.precioFinal,
+        descuento: item.descuento || 0,
+        precioFinal: item.precioFinal,
+        numeroParte: item.numeroParte,
+        ubicacion: item.ubicacion,
+      }));
+
+      createdItems = await WorkOrderItem.insertMany(workOrderItems);
+
+      // Calcular costos desde los items creados
+      await workOrder.calcularCostosDesdeItems();
+
+      // Guardar la WorkOrder con los costos actualizados
+      await workOrder.save();
+    }
 
     // Poblar datos para respuesta
     await workOrder.populate([
@@ -187,12 +243,20 @@ const createWorkOrder = async (req = request, res = response) => {
       },
       { path: "tecnicoAsignado", select: "nombre correo" },
       { path: "estado", select: "codigo nombre color icono tipo" },
+      {
+        path: "items",
+        populate: [
+          { path: "servicio", select: "nombre descripcion precioBase" },
+          { path: "repuesto", select: "nombre codigo precio" },
+        ],
+      },
     ]);
 
     res.status(201).json({
       ok: true,
       msg: "Orden de trabajo creada exitosamente",
       workOrder,
+      itemsCreated: createdItems.length,
     });
   } catch (error) {
     console.error("Error al crear orden de trabajo:", error);
@@ -265,11 +329,128 @@ const updateWorkOrder = async (req = request, res = response) => {
     });
 
     // Recalcular costos si se actualizaron items
-    if (updateData.items) {
-      workOrder.items = updateData.items;
-      await workOrder.calcularCostoTotal();
-      tipoHistorial = "actualizacion_costos";
-      cambiosSignificativos.push("Costos actualizados");
+    if (updateData.items !== undefined) {
+      // Manejar actualización de items de la orden de trabajo
+      const itemsToUpdate = updateData.items || [];
+
+      // Obtener items existentes
+      const existingItems = await WorkOrderItem.find({
+        workOrder: workOrder._id,
+        eliminado: false,
+      });
+
+      // Crear mapas para comparación
+      const existingItemsMap = new Map();
+      existingItems.forEach((item) => {
+        existingItemsMap.set(item._id.toString(), item);
+      });
+
+      // Identificar items a mantener, actualizar, crear y eliminar
+      const itemsToKeep = new Set();
+      const itemsToCreate = [];
+      const itemsToUpdateList = [];
+
+      // Procesar items enviados
+      for (const itemData of itemsToUpdate) {
+        if (itemData._id) {
+          // Item existente - actualizar
+          const existingItem = existingItemsMap.get(itemData._id.toString());
+          if (existingItem) {
+            itemsToKeep.add(itemData._id.toString());
+            itemsToUpdateList.push({
+              _id: itemData._id,
+              updates: {
+                tipo: itemData.tipo,
+                [itemData.tipo === "repuesto" ? "repuesto" : "servicio"]:
+                  itemData.tipo === "repuesto"
+                    ? itemData.repuesto
+                    : itemData.servicio,
+                nombre: itemData.nombre,
+                descripcion: itemData.descripcion,
+                cantidad: itemData.cantidad || 1,
+                precioUnitario:
+                  itemData.precioUnitario ||
+                  itemData.precioFinal / (itemData.cantidad || 1),
+                precioTotal: itemData.precioTotal || itemData.precioFinal,
+                descuento: itemData.descuento || 0,
+                precioFinal: itemData.precioFinal,
+                numeroParte: itemData.numeroParte,
+                ubicacion: itemData.ubicacion,
+              },
+            });
+          }
+        } else {
+          // Item nuevo - crear
+          itemsToCreate.push({
+            workOrder: workOrder._id,
+            tipo: itemData.tipo,
+            [itemData.tipo === "repuesto" ? "repuesto" : "servicio"]:
+              itemData.tipo === "repuesto"
+                ? itemData.repuesto
+                : itemData.servicio,
+            nombre: itemData.nombre,
+            descripcion: itemData.descripcion,
+            cantidad: itemData.cantidad || 1,
+            precioUnitario:
+              itemData.precioUnitario ||
+              itemData.precioFinal / (itemData.cantidad || 1),
+            precioTotal: itemData.precioTotal || itemData.precioFinal,
+            descuento: itemData.descuento || 0,
+            precioFinal: itemData.precioFinal,
+            numeroParte: itemData.numeroParte,
+            ubicacion: itemData.ubicacion,
+          });
+        }
+      }
+
+      // Marcar como eliminados los items que ya no están
+      const itemsToDelete = existingItems.filter(
+        (item) => !itemsToKeep.has(item._id.toString())
+      );
+
+      // Ejecutar operaciones en la base de datos
+      const operations = [];
+
+      // Crear nuevos items
+      if (itemsToCreate.length > 0) {
+        operations.push(WorkOrderItem.insertMany(itemsToCreate));
+      }
+
+      // Actualizar items existentes
+      for (const updateOp of itemsToUpdateList) {
+        operations.push(
+          WorkOrderItem.findByIdAndUpdate(updateOp._id, updateOp.updates)
+        );
+      }
+
+      // Marcar como eliminados los items removidos
+      if (itemsToDelete.length > 0) {
+        operations.push(
+          WorkOrderItem.updateMany(
+            { _id: { $in: itemsToDelete.map((item) => item._id) } },
+            {
+              eliminado: true,
+              eliminadoAt: new Date(),
+              eliminadoBy: req.usuario._id,
+            }
+          )
+        );
+      }
+
+      // Ejecutar todas las operaciones
+      if (operations.length > 0) {
+        await Promise.all(operations);
+        cambiosSignificativos.push(
+          `Items actualizados: +${itemsToCreate.length} creados, ${itemsToUpdateList.length} modificados, ${itemsToDelete.length} eliminados`
+        );
+        tipoHistorial = "modificado_item";
+
+        // Calcular costos desde los items actualizados
+        await workOrder.calcularCostosDesdeItems();
+      }
+
+      // Actualizar el array de items en la WorkOrder (virtual field se encargará del populate)
+      // No necesitamos hacer workOrder.items = ... porque el virtual field lo maneja
     }
 
     workOrder.updatedBy = req.usuario._id;
@@ -296,6 +477,13 @@ const updateWorkOrder = async (req = request, res = response) => {
       { path: "vehicle", select: "marca modelo placa" },
       { path: "estado", select: "nombre codigo" },
       { path: "tecnicoAsignado", select: "nombre apellido" },
+      {
+        path: "items",
+        populate: [
+          { path: "servicio", select: "nombre descripcion precioBase" },
+          { path: "repuesto", select: "nombre codigo precio" },
+        ],
+      },
     ]);
 
     res.json({

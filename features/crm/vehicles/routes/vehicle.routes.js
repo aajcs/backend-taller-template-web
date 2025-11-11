@@ -86,11 +86,7 @@ router.post(
       min: 3,
       max: 10,
     }),
-    check("vin", "El VIN es obligatorio").not().isEmpty(),
-    check("vin", "El VIN debe tener 17 caracteres").isLength({
-      min: 17,
-      max: 17,
-    }),
+    check("vin").custom(existeVehiclePorVin).optional(),
     check("kilometraje", "El kilometraje debe ser un número positivo")
       .optional()
       .isInt({ min: 0 }),
@@ -114,9 +110,7 @@ router.put(
     check("placa", "La placa debe tener entre 3 y 10 caracteres")
       .optional()
       .isLength({ min: 3, max: 10 }),
-    check("vin", "El VIN debe tener 17 caracteres")
-      .optional()
-      .isLength({ min: 17, max: 17 }),
+    check("vin").custom(existeVehiclePorVin).optional(),
     check("kilometraje", "El kilometraje debe ser un número positivo")
       .optional()
       .isInt({ min: 0 }),

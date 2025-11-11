@@ -138,6 +138,27 @@ const workOrderSchema = new Schema(
       ref: "Invoice",
     },
 
+    // NUEVO: Gestión de bahías de servicio
+    serviceBay: {
+      type: Schema.Types.ObjectId,
+      ref: "ServiceBay",
+    },
+
+    // NUEVO: Referencias a asignaciones de técnicos
+    assignments: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "WorkOrderAssignment",
+      },
+    ],
+
+    // NUEVO: Tiempo total trabajado (suma de todos los técnicos)
+    totalHoursWorked: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     // Eliminación lógica
     eliminado: {
       type: Boolean,
@@ -174,6 +195,49 @@ workOrderSchema.methods.calcularCostoTotal = function () {
     this.descuento +
     this.impuesto;
   return this.costoTotal;
+};
+
+// Método para calcular costos desde los items de la orden
+workOrderSchema.methods.calcularCostosDesdeItems = async function () {
+  try {
+    const WorkOrderItem = require("./workOrderItem.model");
+
+    // Obtener todos los items no eliminados de esta orden
+    const items = await WorkOrderItem.find({
+      workOrder: this._id,
+      eliminado: false,
+    });
+
+    // Calcular subtotales
+    let subtotalRepuestos = 0;
+    let subtotalServicios = 0;
+
+    for (const item of items) {
+      if (item.tipo === "repuesto") {
+        subtotalRepuestos += item.precioFinal;
+      } else if (item.tipo === "servicio") {
+        subtotalServicios += item.precioFinal;
+      }
+    }
+
+    // Actualizar los campos
+    this.subtotalRepuestos = subtotalRepuestos;
+    this.subtotalServicios = subtotalServicios;
+
+    // Calcular costo total
+    this.calcularCostoTotal();
+
+    return {
+      subtotalRepuestos: this.subtotalRepuestos,
+      subtotalServicios: this.subtotalServicios,
+      descuento: this.descuento,
+      impuesto: this.impuesto,
+      costoTotal: this.costoTotal,
+    };
+  } catch (error) {
+    console.error("Error al calcular costos desde items:", error);
+    throw error;
+  }
 };
 
 // Método para cambiar estado con validaciones

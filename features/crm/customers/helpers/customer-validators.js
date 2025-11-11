@@ -16,12 +16,21 @@ const existeCustomerPorId = async (id = "") => {
 };
 
 // Validar que existe un cliente por correo
-const existeCustomerPorCorreo = async (correo = "") => {
+const existeCustomerPorCorreo = async (correo = "", { req } = {}) => {
   const { Customer } = require("../models");
-  const customer = await Customer.findOne({
+  
+  // Construir query: buscar por correo pero excluir el ID actual si es un PUT
+  const query = {
     correo: correo.toLowerCase(),
     eliminado: false,
-  });
+  };
+  
+  // Si viene un ID en los params (PUT), excluirlo de la búsqueda
+  if (req?.params?.id) {
+    query._id = { $ne: req.params.id };
+  }
+  
+  const customer = await Customer.findOne(query);
 
   if (customer) {
     throw new Error(`Ya existe un cliente con el correo ${correo}`);
@@ -29,12 +38,21 @@ const existeCustomerPorCorreo = async (correo = "") => {
 };
 
 // Validar que existe un cliente por RIF
-const existeCustomerPorRif = async (rif = "") => {
+const existeCustomerPorRif = async (rif = "", { req } = {}) => {
   const { Customer } = require("../models");
-  const customer = await Customer.findOne({
+  
+  // Construir query: buscar por RIF pero excluir el ID actual si es un PUT
+  const query = {
     rif: rif.toUpperCase(),
     eliminado: false,
-  });
+  };
+  
+  // Si viene un ID en los params (PUT), excluirlo de la búsqueda
+  if (req?.params?.id) {
+    query._id = { $ne: req.params.id };
+  }
+  
+  const customer = await Customer.findOne(query);
 
   if (customer) {
     throw new Error(`Ya existe un cliente con el RIF ${rif}`);

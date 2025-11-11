@@ -140,12 +140,13 @@ const createWorkOrderStatus = async (req = request, res = response) => {
       requiereDocumentacion,
       notificarCliente,
       tiempoEstimadoHoras,
+      collapsed,
     } = req.body;
 
     // Verificar que el código no exista
     const existingStatus = await WorkOrderStatus.findOne({
       codigo: codigo.toUpperCase(),
-      deleted: false,
+      eliminado: false,
     });
 
     if (existingStatus) {
@@ -155,10 +156,9 @@ const createWorkOrderStatus = async (req = request, res = response) => {
       });
     }
 
-    // Validar configuración de estados
+    // Validar configuración de estados (skip transition validation for new status creation)
     const validation = await WorkOrderStatus.validarConfiguracionEstados({
-      tipo,
-      transicionesPermitidas,
+      skipTransitionValidation: true,
     });
 
     if (!validation.valid) {
@@ -181,6 +181,7 @@ const createWorkOrderStatus = async (req = request, res = response) => {
       requiereDocumentacion,
       notificarCliente,
       tiempoEstimadoHoras,
+      collapsed,
       createdBy: req.usuario._id,
     });
 
@@ -231,7 +232,7 @@ const updateWorkOrderStatus = async (req = request, res = response) => {
     ) {
       const existingStatus = await WorkOrderStatus.findOne({
         codigo: updateData.codigo.toUpperCase(),
-        deleted: false,
+        eliminado: false,
         _id: { $ne: id },
       });
 
@@ -246,9 +247,7 @@ const updateWorkOrderStatus = async (req = request, res = response) => {
     // Validar configuración si se actualizan campos críticos
     if (updateData.tipo || updateData.transicionesPermitidas) {
       const validation = await WorkOrderStatus.validarConfiguracionEstados({
-        tipo: updateData.tipo || status.tipo,
-        transicionesPermitidas:
-          updateData.transicionesPermitidas || status.transicionesPermitidas,
+        skipTransitionValidation: true, // Permitir transiciones inválidas durante actualización
       });
 
       if (!validation.valid) {
@@ -274,6 +273,7 @@ const updateWorkOrderStatus = async (req = request, res = response) => {
       "notificarCliente",
       "tiempoEstimadoHoras",
       "activo",
+      "collapsed",
     ];
 
     allowedFields.forEach((field) => {

@@ -34,14 +34,14 @@ router.get(
   "/search",
   [
     validarJWT,
-    check("category", "La categoría debe ser un ID de Mongo válido")
+    check("categoria", "La categoría debe ser un ID de Mongo válido")
       .optional()
       .isMongoId(),
-    check("category").optional().custom(existeServiceCategoryPorId),
-    check("subcategory", "La subcategoría debe ser un ID de Mongo válido")
+    check("categoria").optional().custom(existeServiceCategoryPorId),
+    check("subcategoria", "La subcategoría debe ser un ID de Mongo válido")
       .optional()
       .isMongoId(),
-    check("subcategory").optional().custom(existeServiceSubcategoryPorId),
+    check("subcategoria").optional().custom(existeServiceSubcategoryPorId),
     check("name", "El nombre de búsqueda debe ser texto").optional().isString(),
     check("isActive", "El estado activo debe ser un booleano")
       .optional()
@@ -68,24 +68,24 @@ router.post(
   "/",
   [
     validarJWT,
-    check("name", "El nombre es obligatorio").not().isEmpty(),
-    check("name", "El nombre debe tener máximo 100 caracteres").isLength({
+    check("nombre", "El nombre es obligatorio").not().isEmpty(),
+    check("nombre", "El nombre debe tener máximo 100 caracteres").isLength({
       max: 100,
     }),
-    check("name").custom(existeServicePorNombre),
+    check("nombre").custom(existeServicePorNombre),
     check("description", "La descripción debe tener máximo 500 caracteres")
       .optional()
       .isLength({ max: 500 }),
-    check("category", "La categoría es obligatoria").not().isEmpty(),
+    check("categoria", "La categoría es obligatoria").not().isEmpty(),
     check(
-      "category",
+      "categoria",
       "La categoría debe ser un ID de Mongo válido"
     ).isMongoId(),
-    check("category").custom(existeServiceCategoryPorId),
-    check("subcategory", "La subcategoría debe ser un ID de Mongo válido")
+    check("categoria").custom(existeServiceCategoryPorId),
+    check("subcategoria", "La subcategoría debe ser un ID de Mongo válido")
       .optional()
       .isMongoId(),
-    check("subcategory").optional().custom(existeServiceSubcategoryPorId),
+    check("subcategoria").optional().custom(existeServiceSubcategoryPorId),
     check("basePrice", "El precio base debe ser un número positivo")
       .optional()
       .isFloat({ min: 0 }),
@@ -114,21 +114,21 @@ router.put(
     validarJWT,
     check("id", "No es un ID de Mongo válido").isMongoId(),
     check("id").custom(existeServicePorId),
-    check("name", "El nombre debe tener máximo 100 caracteres")
+    check("nombre", "El nombre debe tener máximo 100 caracteres")
       .optional()
       .isLength({ max: 100 }),
-    check("name").optional().custom(existeServicePorNombre),
+    check("nombre").optional().custom(existeServicePorNombre),
     check("description", "La descripción debe tener máximo 500 caracteres")
       .optional()
       .isLength({ max: 500 }),
-    check("category", "La categoría debe ser un ID de Mongo válido")
+    check("categoria", "La categoría debe ser un ID de Mongo válido")
       .optional()
       .isMongoId(),
-    check("category").optional().custom(existeServiceCategoryPorId),
-    check("subcategory", "La subcategoría debe ser un ID de Mongo válido")
+    check("categoria").optional().custom(existeServiceCategoryPorId),
+    check("subcategoria", "La subcategoría debe ser un ID de Mongo válido")
       .optional()
       .isMongoId(),
-    check("subcategory").optional().custom(existeServiceSubcategoryPorId),
+    check("subcategoria").optional().custom(existeServiceSubcategoryPorId),
     check("basePrice", "El precio base debe ser un número positivo")
       .optional()
       .isFloat({ min: 0 }),

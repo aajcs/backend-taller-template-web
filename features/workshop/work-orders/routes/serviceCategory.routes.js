@@ -44,11 +44,11 @@ router.post(
   "/",
   [
     validarJWT,
-    check("name", "El nombre es obligatorio").not().isEmpty(),
-    check("name", "El nombre debe tener máximo 50 caracteres").isLength({
+    check("nombre", "El nombre es obligatorio").not().isEmpty(),
+    check("nombre", "El nombre debe tener máximo 50 caracteres").isLength({
       max: 50,
     }),
-    check("name").custom(existeServiceCategoryPorNombre),
+    check("nombre").custom(existeServiceCategoryPorNombre),
     check("description", "La descripción debe tener máximo 200 caracteres")
       .optional()
       .isLength({ max: 200 }),

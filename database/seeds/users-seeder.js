@@ -26,8 +26,8 @@ const seedUsers = async () => {
     const usuariosData = [
       {
         nombre: "Super Admin",
-        correo: "superadmin@taller.com",
-        password: "SuperAdmin123!",
+        correo: "castilloitsystems@gmail.com",
+        password: "1234abcd",
         rol: "superAdmin",
         departamento: ["administracion", "inventario"],
         acceso: "completo",
@@ -35,7 +35,7 @@ const seedUsers = async () => {
       },
       {
         nombre: "Admin Sistema",
-        correo: "admin@taller.com",
+        correo: "admin@autosys.com",
         password: "Admin123!",
         rol: "superAdmin",
         departamento: ["administracion", "inventario"],
@@ -44,16 +44,16 @@ const seedUsers = async () => {
       },
       {
         nombre: "Carlos Méndez",
-        correo: "asesor@taller.com",
+        correo: "asesor@autosys.com",
         password: "Asesor123!",
         rol: "admin",
-        departamento: ["taller", "servicio"],
+        departamento: ["autosys", "servicio"],
         acceso: "completo",
         telefono: "04242345678",
       },
       {
         nombre: "María Rodríguez",
-        correo: "almacenista@taller.com",
+        correo: "almacenista@autosys.com",
         password: "Almacen123!",
         rol: "operador",
         departamento: ["inventario"],
@@ -62,16 +62,16 @@ const seedUsers = async () => {
       },
       {
         nombre: "Pedro Jiménez",
-        correo: "tecnico@taller.com",
+        correo: "tecnico@autosys.com",
         password: "Tecnico123!",
         rol: "operador",
-        departamento: ["taller"],
+        departamento: ["autosys"],
         acceso: "limitado",
         telefono: "04244567890",
       },
       {
         nombre: "Ana López",
-        correo: "asesor2@taller.com",
+        correo: "asesor2@autosys.com",
         password: "Asesor123!",
         rol: "admin",
         departamento: ["servicio"],
@@ -80,10 +80,10 @@ const seedUsers = async () => {
       },
       {
         nombre: "Luis Torres",
-        correo: "tecnico2@taller.com",
+        correo: "tecnico2@autosys.com",
         password: "Tecnico123!",
         rol: "operador",
-        departamento: ["taller"],
+        departamento: ["autosys"],
         acceso: "limitado",
         telefono: "04246789012",
       },
@@ -140,10 +140,10 @@ const seedUsers = async () => {
 
     console.log("\n📝 CREDENCIALES DE ACCESO:");
     console.log("-".repeat(60));
-    console.log("Admin:        admin@taller.com / Admin123!");
-    console.log("Asesor:       asesor@taller.com / Asesor123!");
-    console.log("Almacenista:  almacenista@taller.com / Almacen123!");
-    console.log("Técnico:      tecnico@taller.com / Tecnico123!");
+    console.log("Admin:        admin@autosys.com / Admin123!");
+    console.log("Asesor:       asesor@autosys.com / Asesor123!");
+    console.log("Almacenista:  almacenista@autosys.com / Almacen123!");
+    console.log("Técnico:      tecnico@autosys.com / Tecnico123!");
 
     console.log("\n" + "=".repeat(60));
     console.log("🎉 SEEDER COMPLETADO EXITOSAMENTE");

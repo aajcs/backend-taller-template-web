@@ -115,8 +115,8 @@ const testWorkOrdersAPI = async () => {
     console.log("-".repeat(60));
 
     const loginResponse = await makeRequest("POST", "/auth/login", {
-      correo: "superadmin@taller.com",
-      password: "SuperAdmin123!",
+      correo: "castilloitsystems@gmail.com",
+      password: "1234abcd",
     });
 
     if (loginResponse.statusCode !== 200) {
@@ -573,6 +573,59 @@ const testWorkOrdersAPI = async () => {
     }
 
     testData.addedItems = addedItems;
+
+    // ============================================
+    // PASO 5.5: VERIFICAR VIRTUAL "items" EN DETALLE
+    // ============================================
+    console.log(
+      "\n🔍 PASO 5.5: Verificar VIRTUAL 'items' en GET /api/work-orders/:id"
+    );
+    console.log("-".repeat(60));
+
+    const detailAfterItemsResponse = await makeRequest(
+      "GET",
+      `/work-orders/${workOrderId}`,
+      null,
+      authToken
+    );
+
+    if (detailAfterItemsResponse.statusCode === 200) {
+      const workOrderWithItems =
+        detailAfterItemsResponse.data.data || detailAfterItemsResponse.data;
+
+      console.log(`\n   📋 Verificación del virtual 'items':`);
+      console.log(`   - Orden: ${workOrderWithItems.numeroOrden}`);
+
+      if (workOrderWithItems.items && workOrderWithItems.items.length > 0) {
+        console.log(
+          `   ✅ VIRTUAL FUNCIONANDO: ${workOrderWithItems.items.length} items populados`
+        );
+        workOrderWithItems.items.forEach((item, index) => {
+          console.log(
+            `      ${index + 1}. ${item.nombre || item.tipo} - $${item.precioFinal || item.precioTotal || 0}`
+          );
+          if (item.servicio) {
+            console.log(`         Servicio: ${item.servicio.nombre}`);
+          }
+          if (item.repuesto) {
+            console.log(
+              `         Repuesto: ${item.repuesto.nombre} (${item.repuesto.codigo})`
+            );
+          }
+        });
+      } else {
+        console.log(
+          `   ❌ VIRTUAL NO FUNCIONA: Campo 'items' vacío o no existe`
+        );
+        console.log(
+          `   - Items encontrados: ${workOrderWithItems.items ? workOrderWithItems.items.length : 0}`
+        );
+      }
+    } else {
+      console.log(
+        `   ❌ Error consultando detalle con virtual: ${detailAfterItemsResponse.data}`
+      );
+    }
 
     // ============================================
     // PASO 6: CONSULTAR HISTORIAL DE LA ORDEN
@@ -1469,6 +1522,54 @@ const testWorkOrdersAPI = async () => {
     }
 
     // ============================================
+    // PASO 15.5: LISTAR ÓRDENES CON ITEMS INCLUIDOS
+    // ============================================
+    console.log(
+      "\n🔍 PASO 15.5: LISTAR órdenes CON ITEMS incluidos vía GET /api/work-orders?includeItems=true"
+    );
+    console.log("-".repeat(60));
+
+    const includeItemsResponse = await makeRequest(
+      "GET",
+      "/work-orders?includeItems=true&limit=3",
+      null,
+      authToken
+    );
+
+    if (includeItemsResponse.statusCode === 200) {
+      const ordersWithItems =
+        includeItemsResponse.data.data || includeItemsResponse.data.docs || [];
+
+      console.log(
+        `\n   ✅ Órdenes listadas con parámetro includeItems=true: ${ordersWithItems.length}`
+      );
+
+      if (ordersWithItems.length > 0) {
+        console.log(`\n   📋 Verificación de items en cada orden:`);
+        ordersWithItems.forEach((wo, index) => {
+          const itemsCount = wo.items ? wo.items.length : 0;
+          console.log(`   ${index + 1}. Orden: ${wo.numeroOrden || "N/A"}`);
+          console.log(`      - Items incluidos: ${itemsCount}`);
+
+          if (itemsCount > 0) {
+            wo.items.forEach((item, itemIndex) => {
+              console.log(
+                `        ${itemIndex + 1}. ${item.nombre || item.tipo} - $${item.precioFinal || item.precioTotal || 0}`
+              );
+            });
+          }
+        });
+      }
+
+      console.log(
+        `\n   💡 Nota: Si no hay items, las órdenes más recientes no tienen items aún.`
+      );
+      console.log(
+        `      Las órdenes con items son las creadas en pasos anteriores del test.`
+      );
+    }
+
+    // ============================================
     // RESUMEN
     // ============================================
     console.log("\n" + "=".repeat(60));
@@ -1504,6 +1605,7 @@ const testWorkOrdersAPI = async () => {
     ✅ 13. Cuentas por cobrar consultadas (reporte global)
     ✅ 14. Cuentas por cobrar por cliente (filtro específico)
     ✅ 15. Filtrado por prioridad
+    ✅ 15.5. Listado con items incluidos (parámetro includeItems)
     
     FACTURACIÓN:
     ${testData.invoice ? `✓ Factura: ${testData.invoice.invoiceNumber || "N/A"} - Total: $${testData.invoice.total || 0}` : "⚠️ No se generó factura"}

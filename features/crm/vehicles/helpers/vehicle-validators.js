@@ -50,13 +50,27 @@ const existeVehiclePorPlaca = async (placa = "") => {
   }
 };
 
-// Validar que no existe un vehículo con el mismo VIN (para creación)
-const existeVehiclePorVin = async (vin = "") => {
+// Validar que no existe un vehículo con el mismo VIN (para creación y actualización)
+const existeVehiclePorVin = async (vin = "", { req } = {}) => {
+  // Si no se proporciona VIN, no validar (es opcional)
+  if (!vin || vin.trim() === "") {
+    return true;
+  }
+
   const { Vehicle } = require("../models");
-  const vehicle = await Vehicle.findOne({
+
+  // Construir query: buscar por VIN pero excluir el ID actual si es un PUT
+  const query = {
     vin: vin.toUpperCase(),
     eliminado: false,
-  });
+  };
+
+  // Si viene un ID en los params (PUT), excluirlo de la búsqueda
+  if (req?.params?.id) {
+    query._id = { $ne: req.params.id };
+  }
+
+  const vehicle = await Vehicle.findOne(query);
   if (vehicle) {
     throw new Error(`El VIN ${vin} ya está registrado`);
   }

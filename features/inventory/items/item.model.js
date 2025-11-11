@@ -31,12 +31,12 @@ const ItemSchema = new Schema(
 
 ItemSchema.plugin(auditPlugin);
 
-ItemSchema.set("toJSON", {
-  transform: (doc, ret) => {
-    ret.id = ret._id.toString();
-    delete ret._id;
-    delete ret.__v;
-  },
-});
+// ItemSchema.set("toJSON", {
+//   transform: (doc, ret) => {
+//     ret.id = ret._id.toString();
+//     delete ret._id;
+//     delete ret.__v;
+//   },
+// });
 
 module.exports = model("Item", ItemSchema);

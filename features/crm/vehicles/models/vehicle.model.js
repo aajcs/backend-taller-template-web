@@ -39,14 +39,12 @@ const VehicleSchema = Schema(
       maxlength: [10, "La placa no puede exceder los 10 caracteres"],
     },
 
-    // VIN/Serial de Carrocería (único)
+    // VIN/Serial de Carrocería (opcional)
     vin: {
       type: String,
-      required: [true, "El VIN/Serial de carrocería es requerido"],
+      required: false,
       unique: [true, "El VIN/Serial debe ser único"],
       uppercase: true,
-      minlength: [17, "El VIN debe tener 17 caracteres"],
-      maxlength: [17, "El VIN debe tener 17 caracteres"],
     },
 
     // Color del vehículo (opcional)
