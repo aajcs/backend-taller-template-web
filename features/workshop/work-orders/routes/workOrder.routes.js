@@ -4,6 +4,8 @@ const { check } = require("express-validator");
 // Middlewares globales
 const { validarJWT, validarCampos } = require("../../../../middlewares");
 
+console.log("🔄 Cargando workOrder.routes.js");
+
 // Controllers del módulo
 const {
   getWorkOrders,

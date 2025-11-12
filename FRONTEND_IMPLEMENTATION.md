@@ -7,12 +7,14 @@ Esta guía explica cómo implementar en el frontend la funcionalidad para cambia
 ## API Endpoints Requeridos
 
 ### 1. Obtener Estados Disponibles
+
 ```http
 GET /api/work-order-statuses
 Authorization: Bearer {token} o x-token: {token}
 ```
 
 **Respuesta exitosa (200):**
+
 ```json
 {
   "data": [
@@ -49,6 +51,7 @@ Authorization: Bearer {token} o x-token: {token}
 ```
 
 ### 2. Cambiar Estado de Orden de Trabajo
+
 ```http
 PATCH /api/work-orders/:id/status
 Authorization: Bearer {token} o x-token: {token}
@@ -61,6 +64,7 @@ Content-Type: application/json
 ```
 
 **Respuesta exitosa (200):**
+
 ```json
 {
   "msg": "Estado de la orden de trabajo actualizado exitosamente",
@@ -89,47 +93,50 @@ Content-Type: application/json
 ```javascript
 // services/workOrderStatusService.js
 class WorkOrderStatusService {
-  constructor(baseURL = '/api') {
+  constructor(baseURL = "/api") {
     this.baseURL = baseURL;
   }
 
   async getStatuses() {
-    const token = localStorage.getItem('token'); // o desde tu estado de auth
+    const token = localStorage.getItem("token"); // o desde tu estado de auth
 
     const response = await fetch(`${this.baseURL}/work-order-statuses`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Content-Type': 'application/json',
-        'x-token': token, // o 'Authorization': `Bearer ${token}`
+        "Content-Type": "application/json",
+        "x-token": token, // o 'Authorization': `Bearer ${token}`
       },
     });
 
     if (!response.ok) {
-      throw new Error('Error al obtener estados de trabajo');
+      throw new Error("Error al obtener estados de trabajo");
     }
 
     const data = await response.json();
     return data.data || data.statuses || [];
   }
 
-  async changeWorkOrderStatus(workOrderId, newStatus, notes = '') {
-    const token = localStorage.getItem('token');
+  async changeWorkOrderStatus(workOrderId, newStatus, notes = "") {
+    const token = localStorage.getItem("token");
 
-    const response = await fetch(`${this.baseURL}/work-orders/${workOrderId}/status`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-token': token,
-      },
-      body: JSON.stringify({
-        newStatus,
-        notes,
-      }),
-    });
+    const response = await fetch(
+      `${this.baseURL}/work-orders/${workOrderId}/status`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-token": token,
+        },
+        body: JSON.stringify({
+          newStatus,
+          notes,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.msg || 'Error al cambiar estado');
+      throw new Error(errorData.msg || "Error al cambiar estado");
     }
 
     return await response.json();
@@ -143,8 +150,8 @@ export default new WorkOrderStatusService();
 
 ```javascript
 // hooks/useWorkOrderStatuses.js
-import { useState, useEffect } from 'react';
-import workOrderStatusService from '../services/workOrderStatusService';
+import { useState, useEffect } from "react";
+import workOrderStatusService from "../services/workOrderStatusService";
 
 export const useWorkOrderStatuses = () => {
   const [statuses, setStatuses] = useState([]);
@@ -169,11 +176,13 @@ export const useWorkOrderStatuses = () => {
   };
 
   const getValidTransitions = (currentStatusCode) => {
-    const currentStatus = statuses.find(s => s.codigo === currentStatusCode);
+    const currentStatus = statuses.find((s) => s.codigo === currentStatusCode);
     if (!currentStatus || !currentStatus.transicionesPermitidas) {
       return [];
     }
-    return statuses.filter(s => currentStatus.transicionesPermitidas.includes(s.codigo));
+    return statuses.filter((s) =>
+      currentStatus.transicionesPermitidas.includes(s.codigo)
+    );
   };
 
   return {
@@ -190,14 +199,18 @@ export const useWorkOrderStatuses = () => {
 
 ```javascript
 // components/ChangeWorkOrderStatus.jsx
-import React, { useState } from 'react';
-import { useWorkOrderStatuses } from '../hooks/useWorkOrderStatuses';
-import workOrderStatusService from '../services/workOrderStatusService';
+import React, { useState } from "react";
+import { useWorkOrderStatuses } from "../hooks/useWorkOrderStatuses";
+import workOrderStatusService from "../services/workOrderStatusService";
 
 const ChangeWorkOrderStatus = ({ workOrder, onStatusChanged }) => {
-  const { statuses, loading: statusesLoading, getValidTransitions } = useWorkOrderStatuses();
-  const [selectedStatus, setSelectedStatus] = useState('');
-  const [notes, setNotes] = useState('');
+  const {
+    statuses,
+    loading: statusesLoading,
+    getValidTransitions,
+  } = useWorkOrderStatuses();
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -208,7 +221,7 @@ const ChangeWorkOrderStatus = ({ workOrder, onStatusChanged }) => {
     e.preventDefault();
 
     if (!selectedStatus) {
-      setError('Debes seleccionar un nuevo estado');
+      setError("Debes seleccionar un nuevo estado");
       return;
     }
 
@@ -228,11 +241,10 @@ const ChangeWorkOrderStatus = ({ workOrder, onStatusChanged }) => {
       }
 
       // Resetear formulario
-      setSelectedStatus('');
-      setNotes('');
+      setSelectedStatus("");
+      setNotes("");
 
-      alert('Estado cambiado exitosamente');
-
+      alert("Estado cambiado exitosamente");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -249,7 +261,8 @@ const ChangeWorkOrderStatus = ({ workOrder, onStatusChanged }) => {
       <h3>Cambiar Estado de Orden de Trabajo</h3>
 
       <div className="current-status">
-        <strong>Estado Actual:</strong> {workOrder.estado?.nombre || workOrder.estado}
+        <strong>Estado Actual:</strong>{" "}
+        {workOrder.estado?.nombre || workOrder.estado}
       </div>
 
       {validTransitions.length === 0 ? (
@@ -267,7 +280,7 @@ const ChangeWorkOrderStatus = ({ workOrder, onStatusChanged }) => {
               required
             >
               <option value="">Seleccionar estado...</option>
-              {validTransitions.map(status => (
+              {validTransitions.map((status) => (
                 <option key={status.codigo} value={status.codigo}>
                   {status.nombre}
                 </option>
@@ -287,16 +300,16 @@ const ChangeWorkOrderStatus = ({ workOrder, onStatusChanged }) => {
           </div>
 
           {error && (
-            <div className="error-message" style={{ color: 'red', marginBottom: '10px' }}>
+            <div
+              className="error-message"
+              style={{ color: "red", marginBottom: "10px" }}
+            >
               {error}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading || !selectedStatus}
-          >
-            {loading ? 'Cambiando...' : 'Cambiar Estado'}
+          <button type="submit" disabled={loading || !selectedStatus}>
+            {loading ? "Cambiando..." : "Cambiar Estado"}
           </button>
         </form>
       )}
@@ -311,8 +324,8 @@ export default ChangeWorkOrderStatus;
 
 ```javascript
 // components/WorkOrderDetail.jsx
-import React, { useState, useEffect } from 'react';
-import ChangeWorkOrderStatus from './ChangeWorkOrderStatus';
+import React, { useState, useEffect } from "react";
+import ChangeWorkOrderStatus from "./ChangeWorkOrderStatus";
 
 const WorkOrderDetail = ({ workOrderId }) => {
   const [workOrder, setWorkOrder] = useState(null);
@@ -329,9 +342,9 @@ const WorkOrderDetail = ({ workOrderId }) => {
 
   const handleStatusChanged = (result) => {
     // Actualizar el estado local de la orden
-    setWorkOrder(prev => ({
+    setWorkOrder((prev) => ({
       ...prev,
-      estado: result.data.estado
+      estado: result.data.estado,
     }));
 
     // Opcional: recargar toda la orden
@@ -346,8 +359,12 @@ const WorkOrderDetail = ({ workOrderId }) => {
       <h2>Orden de Trabajo #{workOrder._id}</h2>
 
       <div className="work-order-info">
-        <p><strong>Cliente:</strong> {workOrder.customer?.nombre}</p>
-        <p><strong>Estado:</strong> {workOrder.estado?.nombre}</p>
+        <p>
+          <strong>Cliente:</strong> {workOrder.customer?.nombre}
+        </p>
+        <p>
+          <strong>Estado:</strong> {workOrder.estado?.nombre}
+        </p>
         {/* Otros campos... */}
       </div>
 
@@ -369,39 +386,42 @@ export default WorkOrderDetail;
 ```javascript
 // services/workOrderStatusService.js
 class WorkOrderStatusService {
-  constructor(baseURL = '/api') {
+  constructor(baseURL = "/api") {
     this.baseURL = baseURL;
   }
 
   async getStatuses() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
 
     const response = await fetch(`${this.baseURL}/work-order-statuses`, {
       headers: {
-        'x-token': token,
+        "x-token": token,
       },
     });
 
-    if (!response.ok) throw new Error('Error al obtener estados');
+    if (!response.ok) throw new Error("Error al obtener estados");
     const data = await response.json();
     return data.data || data.statuses || [];
   }
 
-  async changeWorkOrderStatus(workOrderId, newStatus, notes = '') {
-    const token = localStorage.getItem('token');
+  async changeWorkOrderStatus(workOrderId, newStatus, notes = "") {
+    const token = localStorage.getItem("token");
 
-    const response = await fetch(`${this.baseURL}/work-orders/${workOrderId}/status`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-token': token,
-      },
-      body: JSON.stringify({ newStatus, notes }),
-    });
+    const response = await fetch(
+      `${this.baseURL}/work-orders/${workOrderId}/status`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-token": token,
+        },
+        body: JSON.stringify({ newStatus, notes }),
+      }
+    );
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.msg || 'Error al cambiar estado');
+      throw new Error(error.msg || "Error al cambiar estado");
     }
 
     return await response.json();
@@ -419,7 +439,8 @@ export default new WorkOrderStatusService();
     <h3>Cambiar Estado de Orden de Trabajo</h3>
 
     <div class="current-status">
-      <strong>Estado Actual:</strong> {{ workOrder.estado?.nombre || workOrder.estado }}
+      <strong>Estado Actual:</strong>
+      {{ workOrder.estado?.nombre || workOrder.estado }}
     </div>
 
     <div v-if="validTransitions.length === 0" class="no-transitions">
@@ -429,11 +450,7 @@ export default new WorkOrderStatusService();
     <form v-else @submit.prevent="changeStatus">
       <div class="form-group">
         <label for="newStatus">Nuevo Estado:</label>
-        <select
-          id="newStatus"
-          v-model="selectedStatus"
-          required
-        >
+        <select id="newStatus" v-model="selectedStatus" required>
           <option value="">Seleccionar estado...</option>
           <option
             v-for="status in validTransitions"
@@ -459,33 +476,30 @@ export default new WorkOrderStatusService();
         {{ error }}
       </div>
 
-      <button
-        type="submit"
-        :disabled="loading || !selectedStatus"
-      >
-        {{ loading ? 'Cambiando...' : 'Cambiar Estado' }}
+      <button type="submit" :disabled="loading || !selectedStatus">
+        {{ loading ? "Cambiando..." : "Cambiar Estado" }}
       </button>
     </form>
   </div>
 </template>
 
 <script>
-import workOrderStatusService from '../services/workOrderStatusService';
+import workOrderStatusService from "../services/workOrderStatusService";
 
 export default {
-  name: 'ChangeWorkOrderStatus',
+  name: "ChangeWorkOrderStatus",
   props: {
     workOrder: {
       type: Object,
       required: true,
     },
   },
-  emits: ['statusChanged'],
+  emits: ["statusChanged"],
   data() {
     return {
       statuses: [],
-      selectedStatus: '',
-      notes: '',
+      selectedStatus: "",
+      notes: "",
       loading: false,
       error: null,
     };
@@ -495,11 +509,13 @@ export default {
       return this.workOrder.estado?.codigo || this.workOrder.estado;
     },
     validTransitions() {
-      const currentStatus = this.statuses.find(s => s.codigo === this.currentStatusCode);
+      const currentStatus = this.statuses.find(
+        (s) => s.codigo === this.currentStatusCode
+      );
       if (!currentStatus || !currentStatus.transicionesPermitidas) {
         return [];
       }
-      return this.statuses.filter(s =>
+      return this.statuses.filter((s) =>
         currentStatus.transicionesPermitidas.includes(s.codigo)
       );
     },
@@ -517,7 +533,7 @@ export default {
     },
     async changeStatus() {
       if (!this.selectedStatus) {
-        this.error = 'Debes seleccionar un nuevo estado';
+        this.error = "Debes seleccionar un nuevo estado";
         return;
       }
 
@@ -531,14 +547,13 @@ export default {
           this.notes
         );
 
-        this.$emit('statusChanged', result);
+        this.$emit("statusChanged", result);
 
         // Reset form
-        this.selectedStatus = '';
-        this.notes = '';
+        this.selectedStatus = "";
+        this.notes = "";
 
-        alert('Estado cambiado exitosamente');
-
+        alert("Estado cambiado exitosamente");
       } catch (error) {
         this.error = error.message;
       } finally {
@@ -620,17 +635,20 @@ button:disabled {
 
 ```javascript
 const handleApiError = (error) => {
-  if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+  if (error.message.includes("401") || error.message.includes("Unauthorized")) {
     // Redirigir a login
     redirectToLogin();
-  } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
-    showError('No tienes permisos para realizar esta acción');
-  } else if (error.message.includes('400')) {
-    showError('Transición de estado no válida');
-  } else if (error.message.includes('404')) {
-    showError('Orden de trabajo no encontrada');
+  } else if (
+    error.message.includes("403") ||
+    error.message.includes("Forbidden")
+  ) {
+    showError("No tienes permisos para realizar esta acción");
+  } else if (error.message.includes("400")) {
+    showError("Transición de estado no válida");
+  } else if (error.message.includes("404")) {
+    showError("Orden de trabajo no encontrada");
   } else {
-    showError('Error inesperado. Inténtalo de nuevo.');
+    showError("Error inesperado. Inténtalo de nuevo.");
   }
 };
 ```
@@ -653,50 +671,58 @@ Para probar la implementación, puedes usar herramientas como:
 ### Ejemplo de Test con Jest
 
 ```javascript
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import ChangeWorkOrderStatus from './ChangeWorkOrderStatus';
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import ChangeWorkOrderStatus from "./ChangeWorkOrderStatus";
 
 // Mock del servicio
-jest.mock('../services/workOrderStatusService');
+jest.mock("../services/workOrderStatusService");
 
-test('cambia estado exitosamente', async () => {
+test("cambia estado exitosamente", async () => {
   const mockWorkOrder = {
-    _id: '123',
-    estado: { codigo: 'RECIBIDO', nombre: 'Recibido' }
+    _id: "123",
+    estado: { codigo: "RECIBIDO", nombre: "Recibido" },
   };
 
   const mockStatuses = [
-    { codigo: 'RECIBIDO', nombre: 'Recibido', transicionesPermitidas: ['DIAGNOSTICO'] },
-    { codigo: 'DIAGNOSTICO', nombre: 'En Diagnóstico', transicionesPermitidas: [] }
+    {
+      codigo: "RECIBIDO",
+      nombre: "Recibido",
+      transicionesPermitidas: ["DIAGNOSTICO"],
+    },
+    {
+      codigo: "DIAGNOSTICO",
+      nombre: "En Diagnóstico",
+      transicionesPermitidas: [],
+    },
   ];
 
   // Configurar mocks
   workOrderStatusService.getStatuses.mockResolvedValue(mockStatuses);
   workOrderStatusService.changeWorkOrderStatus.mockResolvedValue({
-    data: { estado: { codigo: 'DIAGNOSTICO', nombre: 'En Diagnóstico' } }
+    data: { estado: { codigo: "DIAGNOSTICO", nombre: "En Diagnóstico" } },
   });
 
   render(<ChangeWorkOrderStatus workOrder={mockWorkOrder} />);
 
   // Esperar que carguen los estados
   await waitFor(() => {
-    expect(screen.getByDisplayValue('En Diagnóstico')).toBeInTheDocument();
+    expect(screen.getByDisplayValue("En Diagnóstico")).toBeInTheDocument();
   });
 
   // Seleccionar nuevo estado
   fireEvent.change(screen.getByLabelText(/nuevo estado/i), {
-    target: { value: 'DIAGNOSTICO' }
+    target: { value: "DIAGNOSTICO" },
   });
 
   // Enviar formulario
-  fireEvent.click(screen.getByText('Cambiar Estado'));
+  fireEvent.click(screen.getByText("Cambiar Estado"));
 
   // Verificar que se llamó al servicio
   await waitFor(() => {
     expect(workOrderStatusService.changeWorkOrderStatus).toHaveBeenCalledWith(
-      '123',
-      'DIAGNOSTICO',
-      ''
+      "123",
+      "DIAGNOSTICO",
+      ""
     );
   });
 });
@@ -707,9 +733,10 @@ test('cambia estado exitosamente', async () => {
 Esta implementación proporciona una forma segura y eficiente de cambiar el estado de las órdenes de trabajo, con validación tanto en frontend como en backend, manejo adecuado de errores, y una buena experiencia de usuario.
 
 Los puntos clave son:
+
 - Obtener estados disponibles al cargar el componente
 - Validar transiciones permitidas en el frontend
 - Usar PATCH con autenticación
 - Manejar errores apropiadamente
 - Actualizar la UI después del cambio</content>
-<parameter name="filePath">/Users/alfredocastillo/Documents/GitHub/backend-taller-template-web/FRONTEND_IMPLEMENTATION.md
+  <parameter name="filePath">/Users/alfredocastillo/Documents/GitHub/backend-taller-template-web/FRONTEND_IMPLEMENTATION.md

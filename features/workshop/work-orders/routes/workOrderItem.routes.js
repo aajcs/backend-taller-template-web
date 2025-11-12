@@ -10,6 +10,7 @@ const {
   updateWorkOrderItem,
   completeWorkOrderItem,
   deleteWorkOrderItem,
+  changeItemStatus,
 } = require("../controllers/workOrderItem.controller");
 
 // Helpers de validación
@@ -199,6 +200,26 @@ router.patch(
     validarCampos,
   ],
   completeWorkOrderItem
+);
+
+// Cambiar estado de un item - privado
+router.patch(
+  "/item/:id/status",
+  [
+    validarJWT,
+    check("id", "No es un ID de Mongo válido").isMongoId(),
+    check("id").custom(existeWorkOrderItemPorId),
+    check("newStatus", "El nuevo estado es obligatorio").not().isEmpty(),
+    check("newStatus", "El estado debe ser válido").isIn([
+      "pendiente",
+      "en_proceso",
+      "completado",
+      "cancelado",
+    ]),
+    check("notes", "Las notas deben ser texto").optional().isString(),
+    validarCampos,
+  ],
+  changeItemStatus
 );
 
 // Eliminar un item de orden de trabajo - privado

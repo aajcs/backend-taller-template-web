@@ -52,7 +52,7 @@ const getTallerStatus = async (req, res = response) => {
       // })
       .populate({
         path: "currentWorkOrder",
-        select: "numeroOrden motivo vehicle customer",
+        select: "numeroOrden motivo vehicle customer estado items",
         populate: [
           {
             path: "vehicle", // 1. Popular el vehículo
@@ -67,6 +67,7 @@ const getTallerStatus = async (req, res = response) => {
             },
           },
           { path: "customer", select: "nombre apellido telefono" },
+          { path: "estado", select: "nombre" },
         ],
       })
       // .populate({
@@ -112,6 +113,8 @@ const getTallerStatus = async (req, res = response) => {
               customer: bay.currentWorkOrder.customer
                 ? `${bay.currentWorkOrder.customer.nombre}`
                 : "N/A",
+              estado: bay.currentWorkOrder.estado,
+              items: bay.currentWorkOrder.items,
             }
           : null,
         technicians: bay.currentTechnicians.map((ct) => ({

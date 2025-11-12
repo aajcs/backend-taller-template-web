@@ -17,6 +17,8 @@ const {
   customerPut,
   customerDelete,
   customerVehiclesGet,
+  customerEstadisticasCompras,
+  customerHistorialOrdenes,
 } = require("../controllers/customer.controller");
 
 const {
@@ -60,6 +62,30 @@ router.get(
     validarCampos,
   ],
   customerVehiclesGet
+);
+
+// Obtener estadísticas de compras de un cliente - Requiere autenticación
+router.get(
+  "/:id/estadisticas-compras",
+  [
+    validarJWT,
+    check("id", "No es un ID válido").isMongoId(),
+    check("id").custom(existeCustomerPorId),
+    validarCampos,
+  ],
+  customerEstadisticasCompras
+);
+
+// Obtener historial de órdenes de un cliente - Requiere autenticación
+router.get(
+  "/:id/historial-ordenes",
+  [
+    validarJWT,
+    check("id", "No es un ID válido").isMongoId(),
+    check("id").custom(existeCustomerPorId),
+    validarCampos,
+  ],
+  customerHistorialOrdenes
 );
 
 // Buscar cliente por RIF - Requiere autenticación
@@ -147,9 +173,7 @@ router.put(
     check("correo", "El correo no tiene un formato válido")
       .optional()
       .isEmail(),
-    check("correo")
-      .optional()
-      .custom(existeCustomerPorCorreo),
+    check("correo").optional().custom(existeCustomerPorCorreo),
     check("direccion", "La dirección debe tener máximo 200 caracteres")
       .optional()
       .isLength({ max: 200 }),

@@ -53,7 +53,9 @@ const makeRequest = (method, path, data = null, authToken = null) => {
 // Test para verificar la ruta PATCH /:id/status para cambiar estado de WorkOrder
 const testPatchWorkOrderStatus = async () => {
   console.log("=".repeat(70));
-  console.log("🧪 TEST: Ruta PATCH /:id/status para cambiar estado de WorkOrder");
+  console.log(
+    "🧪 TEST: Ruta PATCH /:id/status para cambiar estado de WorkOrder"
+  );
   console.log("=".repeat(70));
 
   let authToken = "";
@@ -96,17 +98,22 @@ const testPatchWorkOrderStatus = async () => {
       );
     }
 
-    const workOrders = workOrdersResponse.data.data || workOrdersResponse.data.workOrders || [];
+    const workOrders =
+      workOrdersResponse.data.data || workOrdersResponse.data.workOrders || [];
     if (workOrders.length === 0) {
       console.log("❌ No hay órdenes de trabajo disponibles para el test");
-      console.log("   Crea una orden de trabajo primero antes de ejecutar este test");
+      console.log(
+        "   Crea una orden de trabajo primero antes de ejecutar este test"
+      );
       return;
     }
 
     const workOrder = workOrders[0];
     console.log(`✅ Orden encontrada: ${workOrder._id}`);
-    console.log(`   - Estado actual: ${workOrder.estado?.nombre || workOrder.estado}`);
-    console.log(`   - Cliente: ${workOrder.customer?.nombre || 'N/A'}`);
+    console.log(
+      `   - Estado actual: ${workOrder.estado?.nombre || workOrder.estado}`
+    );
+    console.log(`   - Cliente: ${workOrder.customer?.nombre || "N/A"}`);
 
     // ============================================
     // PASO 3: OBTENER ESTADOS DISPONIBLES
@@ -127,39 +134,58 @@ const testPatchWorkOrderStatus = async () => {
       );
     }
 
-    const statuses = statusesResponse.data.data || statusesResponse.data.statuses || [];
+    const statuses =
+      statusesResponse.data.data || statusesResponse.data.statuses || [];
     console.log(`📊 Estados disponibles: ${statuses.length}`);
-    statuses.forEach(status => {
-      console.log(`   - ${status.nombre} (${status.codigo}) - Activo: ${status.activo}`);
+    statuses.forEach((status) => {
+      console.log(
+        `   - ${status.nombre} (${status.codigo}) - Activo: ${status.activo}`
+      );
     });
 
     // Buscar un estado válido para transición desde el estado actual
     const currentStatusCode = workOrder.estado?.codigo || workOrder.estado;
-    const currentStatus = statuses.find(s => s.codigo === currentStatusCode);
+    const currentStatus = statuses.find((s) => s.codigo === currentStatusCode);
 
     console.log(`\n🔍 Estado actual: ${currentStatusCode}`);
     if (currentStatus) {
       console.log(`   - Nombre: ${currentStatus.nombre}`);
       console.log(`   - Tipo: ${currentStatus.tipo}`);
-      console.log(`   - Transiciones permitidas: ${currentStatus.transicionesPermitidas || 'Ninguna'}`);
+      console.log(
+        `   - Transiciones permitidas: ${currentStatus.transicionesPermitidas || "Ninguna"}`
+      );
     }
     let newStatus = null;
 
-    if (currentStatus && currentStatus.transicionesPermitidas && currentStatus.transicionesPermitidas.length > 0) {
+    if (
+      currentStatus &&
+      currentStatus.transicionesPermitidas &&
+      currentStatus.transicionesPermitidas.length > 0
+    ) {
       // Buscar el primer estado válido en las transiciones permitidas
-      newStatus = statuses.find(s => currentStatus.transicionesPermitidas.includes(s.codigo));
+      newStatus = statuses.find((s) =>
+        currentStatus.transicionesPermitidas.includes(s.codigo)
+      );
       console.log(`✅ Usando transición permitida: ${newStatus?.codigo}`);
     }
 
     if (!newStatus) {
-      console.log("❌ No hay estados disponibles para transición desde el estado actual");
+      console.log(
+        "❌ No hay estados disponibles para transición desde el estado actual"
+      );
       console.log(`   Estado actual: ${currentStatusCode}`);
-      console.log(`   Transiciones permitidas: ${currentStatus?.transicionesPermitidas || 'Ninguna'}`);
-      console.log("   Sugerencia: Crea un estado con código 'DIAGNOSTICO' o modifica las transiciones del estado actual");
+      console.log(
+        `   Transiciones permitidas: ${currentStatus?.transicionesPermitidas || "Ninguna"}`
+      );
+      console.log(
+        "   Sugerencia: Crea un estado con código 'DIAGNOSTICO' o modifica las transiciones del estado actual"
+      );
       return;
     }
 
-    console.log(`✅ Estado para transición: ${newStatus.nombre} (${newStatus.codigo})`);
+    console.log(
+      `✅ Estado para transición: ${newStatus.nombre} (${newStatus.codigo})`
+    );
     console.log(`   Desde: ${currentStatusCode} → Hacia: ${newStatus.codigo}`);
 
     // ============================================
@@ -195,8 +221,12 @@ const testPatchWorkOrderStatus = async () => {
 
     const updatedWorkOrder = changeResponse.data.data;
     console.log("✅ Estado cambiado exitosamente");
-    console.log(`   - Estado anterior: ${changeResponse.data.estadoAnterior?.nombre || 'N/A'}`);
-    console.log(`   - Estado nuevo: ${changeResponse.data.estadoNuevo?.nombre || 'N/A'}`);
+    console.log(
+      `   - Estado anterior: ${changeResponse.data.estadoAnterior?.nombre || "N/A"}`
+    );
+    console.log(
+      `   - Estado nuevo: ${changeResponse.data.estadoNuevo?.nombre || "N/A"}`
+    );
     console.log(`   - Notas: ${changeStatusData.notes}`);
 
     // ============================================
@@ -219,13 +249,18 @@ const testPatchWorkOrderStatus = async () => {
     }
 
     const verifiedWorkOrder = verifyResponse.data.data;
-    const verifiedStatusCode = verifiedWorkOrder.estado?.codigo || verifiedWorkOrder.estado;
+    const verifiedStatusCode =
+      verifiedWorkOrder.estado?.codigo || verifiedWorkOrder.estado;
 
     if (verifiedStatusCode === newStatus.codigo) {
       console.log("✅ Verificación exitosa: El estado se cambió correctamente");
-      console.log(`   - Estado actual en BD: ${verifiedWorkOrder.estado?.nombre || verifiedStatusCode}`);
+      console.log(
+        `   - Estado actual en BD: ${verifiedWorkOrder.estado?.nombre || verifiedStatusCode}`
+      );
     } else {
-      console.log(`❌ Error de verificación: Estado esperado ${newStatus.codigo}, pero encontrado ${verifiedStatusCode}`);
+      console.log(
+        `❌ Error de verificación: Estado esperado ${newStatus.codigo}, pero encontrado ${verifiedStatusCode}`
+      );
     }
 
     // ============================================
@@ -241,7 +276,6 @@ const testPatchWorkOrderStatus = async () => {
 
     console.log("\n🎉 TEST COMPLETADO EXITOSAMENTE");
     console.log("📝 La ruta PATCH /:id/status está funcionando correctamente");
-
   } catch (error) {
     console.error("❌ Error en el test:", error.message);
   }

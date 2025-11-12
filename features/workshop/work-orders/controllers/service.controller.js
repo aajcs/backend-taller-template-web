@@ -81,9 +81,7 @@ const getServiceById = async (req = request, res = response) => {
 
     const service = await Service.findById(id)
       .populate("categoria", "nombre codigo descripcion color icono")
-      .populate("subcategoria", "nombre codigo")
-      .populate("createdBy", "nombre apellido")
-      .populate("updatedBy", "nombre apellido");
+      .populate("subcategoria", "nombre codigo");
 
     if (!service || service.eliminado) {
       return res.status(404).json({

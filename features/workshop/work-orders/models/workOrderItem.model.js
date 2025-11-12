@@ -144,6 +144,17 @@ const workOrderItemSchema = new Schema(
       maxlength: [300, "Las notas no pueden exceder 300 caracteres"],
     },
 
+    // Auditoría
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    updatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+
     // Eliminación lógica
     eliminado: {
       type: Boolean,
@@ -170,12 +181,143 @@ workOrderItemSchema.methods.recalcularPrecios = function () {
 };
 
 // Método para marcar como completado
-workOrderItemSchema.methods.marcarCompletado = function (tiempoReal) {
-  this.estado = "completado";
-  if (tiempoReal !== undefined) {
-    this.tiempoReal = tiempoReal;
+workOrderItemSchema.methods.marcarCompletado = async function (
+  tiempoReal,
+  usuarioId,
+  notas
+) {
+  try {
+    // Validar que no esté ya completado
+    if (this.estado === "completado") {
+      return {
+        success: false,
+        message: "El item ya está completado",
+      };
+    }
+
+    // Actualizar estado y tiempo
+    this.estado = "completado";
+    if (tiempoReal !== undefined) {
+      this.tiempoReal = tiempoReal;
+    }
+
+    // Registrar en historial
+    if (usuarioId) {
+      const WorkOrderHistory = require("./workOrderHistory.model");
+      await WorkOrderHistory.create({
+        workOrder: this.workOrder,
+        tipo: "completado_item",
+        descripcion: `${this.tipo === "servicio" ? "Servicio" : "Repuesto"} completado: ${this.nombre}`,
+        usuario: usuarioId,
+        itemAfectado: this._id,
+        notas: notas || "",
+        detalles: {
+          tipo: this.tipo,
+          nombre: this.nombre,
+          tiempoEstimado: this.tiempoEstimado,
+          tiempoReal: tiempoReal,
+          precioTotal: this.precioTotal,
+        },
+        fecha: new Date(),
+      });
+    }
+
+    await this.save();
+    return {
+      success: true,
+      message: "Item marcado como completado",
+    };
+  } catch (error) {
+    console.error("Error al marcar item como completado:", error);
+    return {
+      success: false,
+      message: "Error interno al completar el item",
+    };
   }
-  return this.save();
+};
+
+// Método para cambiar estado del item
+workOrderItemSchema.methods.cambiarEstado = async function (
+  nuevoEstado,
+  usuarioId,
+  notas
+) {
+  try {
+    const estadosValidos = [
+      "pendiente",
+      "en_proceso",
+      "completado",
+      "cancelado",
+    ];
+
+    if (!estadosValidos.includes(nuevoEstado)) {
+      return {
+        success: false,
+        message: `Estado '${nuevoEstado}' no válido`,
+      };
+    }
+
+    // Validar transiciones de estado
+    const validTransitions = {
+      pendiente: ["en_proceso", "cancelado"],
+      en_proceso: ["completado", "cancelado", "pendiente"],
+      completado: [], // No se puede cambiar desde completado
+      cancelado: ["pendiente"], // Se puede reactivar
+    };
+
+    const estadoActual = this.estado;
+    const transicionesPermitidas = validTransitions[estadoActual] || [];
+
+    if (!transicionesPermitidas.includes(nuevoEstado)) {
+      return {
+        success: false,
+        message: `No se puede cambiar del estado '${estadoActual}' al estado '${nuevoEstado}'`,
+        transicionesPermitidas,
+      };
+    }
+
+    const estadoAnterior = this.estado;
+    this.estado = nuevoEstado;
+
+    // Agregar notas si se proporcionaron
+    if (notas) {
+      this.notas = this.notas
+        ? `${this.notas}\n[${new Date().toISOString()}] ${notas}`
+        : notas;
+    }
+
+    // Registrar en historial
+    if (usuarioId) {
+      const WorkOrderHistory = require("./workOrderHistory.model");
+      await WorkOrderHistory.create({
+        workOrder: this.workOrder,
+        tipo: "modificado_item",
+        descripcion: `Estado de ${this.tipo} cambiado: ${estadoAnterior} → ${nuevoEstado}`,
+        usuario: usuarioId,
+        itemAfectado: this._id,
+        notas: notas || "",
+        detalles: {
+          tipo: this.tipo,
+          nombre: this.nombre,
+          estadoAnterior,
+          estadoNuevo: nuevoEstado,
+        },
+        fecha: new Date(),
+      });
+    }
+
+    await this.save();
+    return {
+      success: true,
+      message: `Estado cambiado a ${nuevoEstado}`,
+    };
+  } catch (error) {
+    console.error("Error al cambiar estado del item:", error);
+    return {
+      success: false,
+      message: "Error interno al cambiar estado",
+    };
+  }
 };
 
 // Método para cancelar item
@@ -206,5 +348,62 @@ try {
 } catch (error) {
   // Plugin no disponible, continuar sin él
 }
+
+// Hook para registrar creación de item en historial
+workOrderItemSchema.post("save", async function (doc) {
+  if (this.isNew) {
+    try {
+      const WorkOrderHistory = require("./workOrderHistory.model");
+      await WorkOrderHistory.create({
+        workOrder: doc.workOrder,
+        tipo: "agregado_item",
+        descripcion: `${doc.tipo === "servicio" ? "Servicio" : "Repuesto"} agregado: ${doc.nombre}`,
+        usuario: doc.createdBy,
+        itemAfectado: doc._id,
+        detalles: {
+          tipo: doc.tipo,
+          nombre: doc.nombre,
+          cantidad: doc.cantidad,
+          precioUnitario: doc.precioUnitario,
+          precioTotal: doc.precioTotal,
+        },
+        fecha: new Date(),
+      });
+    } catch (error) {
+      console.error("Error al registrar creación de item en historial:", error);
+    }
+  }
+});
+
+// Hook para registrar eliminación de item
+workOrderItemSchema.pre("save", async function (next) {
+  try {
+    if (
+      !this.isNew &&
+      this.isModified("eliminado") &&
+      this.eliminado === true
+    ) {
+      const WorkOrderHistory = require("./workOrderHistory.model");
+      await WorkOrderHistory.create({
+        workOrder: this.workOrder,
+        tipo: "eliminado_item",
+        descripcion: `${this.tipo === "servicio" ? "Servicio" : "Repuesto"} eliminado: ${this.nombre}`,
+        usuario: this.updatedBy || this.createdBy,
+        itemAfectado: this._id,
+        detalles: {
+          tipo: this.tipo,
+          nombre: this.nombre,
+          cantidad: this.cantidad,
+          precioTotal: this.precioTotal,
+        },
+        fecha: new Date(),
+      });
+    }
+    next();
+  } catch (error) {
+    console.error("Error en pre-save hook de item:", error);
+    next(error);
+  }
+});
 
 module.exports = model("WorkOrderItem", workOrderItemSchema);

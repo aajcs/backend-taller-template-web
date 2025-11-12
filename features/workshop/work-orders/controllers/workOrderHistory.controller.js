@@ -201,9 +201,8 @@ const getWorkOrderTimeline = async (req = request, res = response) => {
 
     // Verificar que la orden existe
     const workOrder = await WorkOrder.findById(workOrderId)
-      .populate("createdBy", "nombre apellido")
-      .populate("customer", "nombre apellido")
-      .populate("vehicle", "marca modelo placa");
+      .populate("customer", "nombre")
+      .populate("vehicle", "placa");
 
     if (!workOrder || workOrder.eliminado) {
       return res.status(404).json({
@@ -226,7 +225,7 @@ const getWorkOrderTimeline = async (req = request, res = response) => {
         title: "Orden Creada",
         description: `Orden ${workOrder.numeroOrden} creada`,
         date: workOrder.createdAt,
-        user: workOrder.createdBy,
+        user: null, // No hay información de usuario creador disponible
         icon: "plus-circle",
         color: "#4CAF50",
       },

@@ -7,6 +7,8 @@ const {
 } = require("../models");
 const { validationResult } = require("express-validator");
 
+console.log("🔄 Cargando workOrder.controller.js");
+
 // Obtener todas las órdenes de trabajo con filtros y paginación
 const getWorkOrders = async (req = request, res = response) => {
   try {
@@ -195,6 +197,8 @@ const createWorkOrder = async (req = request, res = response) => {
       descuento, // Nuevo: descuento
       impuesto, // Nuevo: impuesto
       estado: estadoInicial._id,
+      createdBy: req.usuario._id, // Usuario que crea la orden
+      updatedBy: req.usuario._id, // Usuario que crea la orden
     });
 
     // Guardar la orden de trabajo
@@ -503,18 +507,26 @@ const updateWorkOrder = async (req = request, res = response) => {
 
 // Cambiar estado de una orden de trabajo
 const changeWorkOrderStatus = async (req = request, res = response) => {
+  console.log(
+    `🔄 API changeWorkOrderStatus llamada: ${req.params.id} -> ${req.body.newStatus}`
+  );
   try {
     const { id } = req.params;
     const { newStatus, notes } = req.body;
 
+    console.log(`🔍 Buscando workOrder con ID: ${id}`);
     const workOrder = await WorkOrder.findById(id).populate("estado");
     if (!workOrder || workOrder.eliminado) {
+      console.log(`❌ WorkOrder no encontrada: ${id}`);
       return res.status(404).json({
         success: false,
         message: "Orden de trabajo no encontrada",
       });
     }
 
+    console.log(
+      `✅ WorkOrder encontrada: ${workOrder.numeroOrden}, llamando cambiarEstado...`
+    );
     // Intentar cambiar el estado
     const result = await workOrder.cambiarEstado(
       newStatus,
@@ -523,12 +535,14 @@ const changeWorkOrderStatus = async (req = request, res = response) => {
     );
 
     if (!result.success) {
+      console.log(`❌ cambiarEstado falló: ${result.message}`);
       return res.status(400).json({
         success: false,
         message: result.message,
       });
     }
 
+    console.log(`✅ cambiarEstado exitoso, populando datos...`);
     // Poblar datos actualizados
     await workOrder.populate([
       { path: "estado", select: "nombre codigo color icono tipo" },
@@ -536,6 +550,7 @@ const changeWorkOrderStatus = async (req = request, res = response) => {
       { path: "vehicle", select: "marca modelo" },
     ]);
 
+    console.log(`📤 Enviando respuesta exitosa`);
     res.json({
       success: true,
       message: "Estado de la orden actualizado exitosamente",
@@ -544,7 +559,7 @@ const changeWorkOrderStatus = async (req = request, res = response) => {
       estadoNuevo: result.estadoNuevo,
     });
   } catch (error) {
-    console.error("Error al cambiar estado de orden:", error);
+    console.error("❌ Error en changeWorkOrderStatus:", error);
     res.status(500).json({
       success: false,
       message: "Error interno del servidor",

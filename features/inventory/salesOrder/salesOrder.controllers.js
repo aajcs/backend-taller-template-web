@@ -11,10 +11,33 @@ const buildUpdateWithHistorial = require("../../../helpers/build-update-with-his
 async function create(req, res, next) {
   try {
     const body = req.body;
+
+    // Validar que el cliente existe y está activo
+    const Customer = require("../../crm/customers/models/customer.model");
+    const cliente = await Customer.findById(body.cliente);
+
+    if (!cliente || cliente.eliminado) {
+      return res.status(400).json({
+        ok: false,
+        msg: "Cliente no encontrado o eliminado",
+      });
+    }
+
+    if (cliente.estado !== "activo") {
+      return res.status(400).json({
+        ok: false,
+        msg: "El cliente debe estar en estado activo para crear órdenes",
+      });
+    }
+
     // generate a simple numero if not provided
     if (!body.numero) body.numero = `SO-${Date.now()}`;
     const so = new SalesOrder(body);
     await so.save();
+
+    // Popular cliente antes de responder
+    await so.populate("cliente", "nombre correo telefono tipo rif razonSocial");
+
     res.status(201).json(so);
   } catch (err) {
     next(err);
@@ -24,6 +47,7 @@ async function create(req, res, next) {
 async function list(req, res, next) {
   try {
     const items = await SalesOrder.find({ eliminado: false })
+      .populate("cliente", "nombre correo telefono tipo rif razonSocial")
       .populate({
         path: "reservations",
         populate: [
@@ -42,6 +66,10 @@ async function get(req, res, next) {
   try {
     const id = req.params.id;
     const so = await SalesOrder.findById(id)
+      .populate(
+        "cliente",
+        "nombre correo telefono tipo rif razonSocial direccion"
+      )
       .populate({
         path: "reservations",
         populate: [
@@ -171,10 +199,15 @@ async function confirm(req, res, next) {
     if (session) {
       await so.save({ session });
       await session.commitTransaction();
-      session.endSession();
     } else {
       await so.save();
     }
+
+    // Close session after successful commit
+    if (session) {
+      session.endSession();
+    }
+
     const updated = await SalesOrder.findById(id)
       .populate({
         path: "reservations",
@@ -186,13 +219,15 @@ async function confirm(req, res, next) {
       .exec();
     res.json(updated);
   } catch (err) {
-    if (session) {
+    if (session && session.inTransaction()) {
       try {
         await session.abortTransaction();
-        session.endSession();
       } catch (abortError) {
         console.error("Error aborting transaction:", abortError.message);
       }
+    }
+    if (session) {
+      session.endSession();
     }
     next(err);
   }
@@ -223,13 +258,15 @@ async function ship(req, res, next) {
     const so = session ? await soQuery.session(session) : await soQuery;
     if (!so) throw { status: 404, message: "SalesOrder not found" };
 
-    // Idempotency check
+    // Idempotency check (only for non-partial orders to allow multiple shipments)
     const idempotencyKey = req.body.idempotencyKey;
-    if (idempotencyKey && so.shipIdempotencyKey) {
+    if (idempotencyKey && so.shipIdempotencyKey && so.estado !== "parcial") {
       if (so.shipIdempotencyKey === idempotencyKey) {
         // Already processed with this key, return current state
-        await session.abortTransaction();
-        session.endSession();
+        if (session) {
+          await session.abortTransaction();
+          session.endSession();
+        }
         const existing = await SalesOrder.findById(id)
           .populate("reservations")
           .exec();
@@ -283,11 +320,12 @@ async function ship(req, res, next) {
         }
 
         // Find active reservation for this item
-        const r = await Reservation.findOne({
+        const rQuery = Reservation.findOne({
           _id: { $in: so.reservations },
           item: line.item,
           estado: "activo",
-        }).session(session);
+        });
+        const r = session ? await rQuery.session(session) : await rQuery;
 
         if (!r) {
           throw {
@@ -317,7 +355,11 @@ async function ship(req, res, next) {
         // If this line is fully delivered, mark reservation consumed
         if (line.entregado >= line.cantidad) {
           r.estado = "consumido";
-          await r.save({ session });
+          if (session) {
+            await r.save({ session });
+          } else {
+            await r.save();
+          }
         }
       }
 
@@ -330,7 +372,8 @@ async function ship(req, res, next) {
     } else {
       // Full shipping: process all active reservations
       for (const rId of so.reservations) {
-        const r = await Reservation.findById(rId).session(session);
+        const rQuery = Reservation.findById(rId);
+        const r = session ? await rQuery.session(session) : await rQuery;
         if (!r || r.estado !== "activo") continue;
 
         // call createMovement to decrement stock
@@ -349,7 +392,11 @@ async function ship(req, res, next) {
         );
 
         r.estado = "consumido";
-        await r.save({ session });
+        if (session) {
+          await r.save({ session });
+        } else {
+          await r.save();
+        }
 
         // Update line.entregado
         const line = so.items.find(
@@ -365,10 +412,19 @@ async function ship(req, res, next) {
     }
 
     if (idempotencyKey) so.shipIdempotencyKey = idempotencyKey;
-    await so.save({ session });
 
-    await session.commitTransaction();
-    session.endSession();
+    if (session) {
+      await so.save({ session });
+      await session.commitTransaction();
+    } else {
+      await so.save();
+    }
+
+    // Close session after successful commit
+    if (session) {
+      session.endSession();
+    }
+
     const updated = await SalesOrder.findById(id)
       .populate({
         path: "reservations",
@@ -378,10 +434,24 @@ async function ship(req, res, next) {
         ],
       })
       .exec();
-    res.json(updated);
+
+    res.json({
+      ok: true,
+      salesOrder: updated,
+      movements: updated.reservations.filter((r) => r.estado === "consumido")
+        .length,
+    });
   } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
+    if (session && session.inTransaction()) {
+      try {
+        await session.abortTransaction();
+      } catch (abortError) {
+        console.error("Error aborting transaction:", abortError.message);
+      }
+    }
+    if (session) {
+      session.endSession();
+    }
     next(err);
   }
 }
@@ -413,8 +483,10 @@ async function cancel(req, res, next) {
     if (idempotencyKey && so.cancelIdempotencyKey) {
       if (so.cancelIdempotencyKey === idempotencyKey) {
         // Already processed with this key, return current state
-        await session.abortTransaction();
-        session.endSession();
+        if (session) {
+          await session.abortTransaction();
+          session.endSession();
+        }
         const existing = await SalesOrder.findById(id)
           .populate("reservations")
           .exec();
@@ -438,30 +510,51 @@ async function cancel(req, res, next) {
 
     // release reservations AND decrement stock.reservado (FIX)
     for (const rId of so.reservations) {
-      const r = await Reservation.findById(rId).session(session);
+      const rQuery = Reservation.findById(rId);
+      const r = session ? await rQuery.session(session) : await rQuery;
       if (!r) continue;
 
       // Find the stock document and decrement reservado
-      const stock = await Stock.findOne({
+      const stockQuery = Stock.findOne({
         item: r.item,
         warehouse: r.warehouse,
-      }).session(session);
+      });
+      const stock = session
+        ? await stockQuery.session(session)
+        : await stockQuery;
       if (stock) {
         stock.reservado = Math.max(0, (stock.reservado || 0) - r.cantidad);
-        await stock.save({ session });
+        if (session) {
+          await stock.save({ session });
+        } else {
+          await stock.save();
+        }
       }
 
       r.estado = "liberado";
-      await r.save({ session });
+      if (session) {
+        await r.save({ session });
+      } else {
+        await r.save();
+      }
     }
 
     so.estado = "cancelada";
     so.fechaCancelacion = new Date();
     if (idempotencyKey) so.cancelIdempotencyKey = idempotencyKey;
-    await so.save({ session });
 
-    await session.commitTransaction();
-    session.endSession();
+    if (session) {
+      await so.save({ session });
+      await session.commitTransaction();
+    } else {
+      await so.save();
+    }
+
+    // Close session after successful commit (outside of critical path)
+    if (session) {
+      session.endSession();
+    }
+
     const updated = await SalesOrder.findById(id)
       .populate({
         path: "reservations",
@@ -471,10 +564,24 @@ async function cancel(req, res, next) {
         ],
       })
       .exec();
-    res.json(updated);
+
+    res.json({
+      ok: true,
+      salesOrder: updated,
+      liberatedReservations: so.reservations.length,
+    });
   } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
+    console.error("❌ Error en cancel():", err);
+    if (session && session.inTransaction()) {
+      try {
+        await session.abortTransaction();
+      } catch (abortError) {
+        console.error("Error aborting transaction:", abortError.message);
+      }
+    }
+    if (session) {
+      session.endSession();
+    }
     next(err);
   }
 }

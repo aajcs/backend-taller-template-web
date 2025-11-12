@@ -163,6 +163,15 @@ CustomerSchema.virtual("vehicles", {
   options: { sort: { createdAt: -1 } }, // Ordenar por fecha de creación descendente
 });
 
+// Campo virtual para obtener órdenes de venta asociadas
+CustomerSchema.virtual("salesOrders", {
+  ref: "SalesOrder",
+  localField: "_id",
+  foreignField: "cliente",
+  match: { eliminado: false }, // Solo órdenes no eliminadas
+  options: { sort: { fecha: -1 } }, // Ordenar por fecha descendente
+});
+
 // Método para obtener vehículos con detalles completos
 CustomerSchema.methods.getVehicles = async function () {
   const Vehicle = require("../../vehicles/models/vehicle.model");
@@ -213,6 +222,128 @@ CustomerSchema.statics.findActive = function () {
     estado: "activo",
     eliminado: false,
   });
+};
+
+// ============================================
+// MÉTODOS PARA ESTADÍSTICAS DE COMPRAS
+// ============================================
+
+/**
+ * Obtener estadísticas completas de compras del cliente
+ * Incluye: total de órdenes, órdenes por estado, montos totales
+ */
+CustomerSchema.methods.getEstadisticasCompras = async function () {
+  const SalesOrder = require("../../../../features/inventory/salesOrder/salesOrder.model");
+
+  const ordenes = await SalesOrder.find({
+    cliente: this._id,
+    eliminado: false,
+  }).lean();
+
+  // Inicializar estadísticas
+  const stats = {
+    totalOrdenes: ordenes.length,
+    porEstado: {
+      borrador: 0,
+      pendiente: 0,
+      confirmada: 0,
+      parcial: 0,
+      despachada: 0,
+      cancelada: 0,
+    },
+    montos: {
+      total: 0,
+      despachado: 0,
+      pendiente: 0,
+      cancelado: 0,
+    },
+    promedioOrden: 0,
+  };
+
+  // Calcular estadísticas
+  ordenes.forEach((orden) => {
+    // Contar por estado
+    if (stats.porEstado.hasOwnProperty(orden.estado)) {
+      stats.porEstado[orden.estado]++;
+    }
+
+    // Calcular monto de la orden
+    const montoOrden = orden.items.reduce((sum, item) => {
+      return sum + (item.cantidad || 0) * (item.precioUnitario || 0);
+    }, 0);
+
+    stats.montos.total += montoOrden;
+
+    // Clasificar por estado
+    if (orden.estado === "despachada") {
+      stats.montos.despachado += montoOrden;
+    } else if (["confirmada", "parcial", "pendiente"].includes(orden.estado)) {
+      stats.montos.pendiente += montoOrden;
+    } else if (orden.estado === "cancelada") {
+      stats.montos.cancelado += montoOrden;
+    }
+  });
+
+  // Calcular promedio
+  if (ordenes.length > 0) {
+    stats.promedioOrden = stats.montos.total / ordenes.length;
+  }
+
+  return stats;
+};
+
+/**
+ * Obtener la última orden del cliente
+ */
+CustomerSchema.methods.getUltimaOrden = async function () {
+  const SalesOrder = require("../../../../features/inventory/salesOrder/salesOrder.model");
+
+  return await SalesOrder.findOne({
+    cliente: this._id,
+    eliminado: false,
+  })
+    .sort({ fecha: -1 })
+    .populate("items.item", "nombre sku")
+    .lean();
+};
+
+/**
+ * Obtener historial de órdenes del cliente
+ * @param {Number} limite - Cantidad de órdenes a retornar (default: 10)
+ */
+CustomerSchema.methods.getHistorialOrdenes = async function (limite = 10) {
+  const SalesOrder = require("../../../../features/inventory/salesOrder/salesOrder.model");
+
+  return await SalesOrder.find({
+    cliente: this._id,
+    eliminado: false,
+  })
+    .sort({ fecha: -1 })
+    .limit(limite)
+    .populate("items.item", "nombre sku")
+    .select("numero fecha estado items")
+    .lean();
+};
+
+/**
+ * Contar órdenes activas del cliente (confirmadas, parciales, pendientes)
+ */
+CustomerSchema.methods.countOrdenesActivas = async function () {
+  const SalesOrder = require("../../../../features/inventory/salesOrder/salesOrder.model");
+
+  return await SalesOrder.countDocuments({
+    cliente: this._id,
+    eliminado: false,
+    estado: { $in: ["confirmada", "parcial", "pendiente"] },
+  });
+};
+
+/**
+ * Verificar si el cliente tiene órdenes pendientes
+ */
+CustomerSchema.methods.tieneOrdenesPendientes = async function () {
+  const count = await this.countOrdenesActivas();
+  return count > 0;
 };
 
 module.exports = model("Customer", CustomerSchema);

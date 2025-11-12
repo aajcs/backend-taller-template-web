@@ -95,10 +95,11 @@ const getAllowedTransitions = async (req = request, res = response) => {
       });
     }
 
+    // transicionesPermitidas contiene códigos, no IDs
     const allowedStatuses = await WorkOrderStatus.find({
-      _id: { $in: status.transicionesPermitidas },
+      codigo: { $in: status.transicionesPermitidas },
       activo: true,
-      deleted: false,
+      eliminado: false,
     }).sort({ orden: 1 });
 
     res.json({
@@ -156,17 +157,8 @@ const createWorkOrderStatus = async (req = request, res = response) => {
       });
     }
 
-    // Validar configuración de estados (skip transition validation for new status creation)
-    const validation = await WorkOrderStatus.validarConfiguracionEstados({
-      skipTransitionValidation: true,
-    });
-
-    if (!validation.valid) {
-      return res.status(400).json({
-        success: false,
-        message: validation.message,
-      });
-    }
+    // No validar configuración durante creación de estados individuales
+    // La validación se debe hacer después de crear todos los estados necesarios
 
     const status = new WorkOrderStatus({
       codigo: codigo.toUpperCase(),

@@ -1,5 +1,10 @@
 const { response, request } = require("express");
-const { WorkOrderItem, WorkOrder, Service } = require("../models");
+const {
+  WorkOrderItem,
+  WorkOrder,
+  WorkOrderStatus,
+  Service,
+} = require("../models");
 const Item = require("../../../inventory/items/item.model");
 const Reservation = require("../../../inventory/reservations/reservation.models");
 const Stock = require("../../../inventory/stock/stock.model");
@@ -76,10 +81,10 @@ const getWorkOrderItemById = async (req = request, res = response) => {
     const item = await WorkOrderItem.findById(id)
       .populate("workOrder", "numeroOrden status")
       .populate(
-        "service",
+        "servicio",
         "nombre descripcion precioBase tiempoEstimadoMinutos"
       )
-      .populate("part", "nombre codigo precio costo stockActual");
+      .populate("repuesto", "nombre codigo precio costo stockActual");
 
     if (!item || item.eliminado) {
       return res.status(404).json({
@@ -162,6 +167,8 @@ const addWorkOrderItem = async (req = request, res = response) => {
       tipo: type === "service" ? "servicio" : "repuesto",
       cantidad: quantity,
       notas: notes,
+      createdBy: req.usuario._id, // Usuario que crea el item
+      updatedBy: req.usuario._id, // Usuario que crea el item
     };
 
     if (type === "service") {
@@ -318,8 +325,8 @@ const updateWorkOrderItem = async (req = request, res = response) => {
 
     // Poblar datos actualizados
     await item.populate([
-      { path: "service", select: "nombre precioBase" },
-      { path: "part", select: "nombre precio" },
+      { path: "servicio", select: "nombre precioBase" },
+      { path: "repuesto", select: "nombre precio" },
     ]);
 
     res.json({
@@ -367,8 +374,8 @@ const completeWorkOrderItem = async (req = request, res = response) => {
 
     // Poblar datos para respuesta
     await item.populate([
-      { path: "service", select: "nombre" },
-      { path: "part", select: "nombre" },
+      { path: "servicio", select: "nombre" },
+      { path: "repuesto", select: "nombre" },
     ]);
 
     res.json({
@@ -432,6 +439,121 @@ const deleteWorkOrderItem = async (req = request, res = response) => {
   }
 };
 
+// Cambiar estado de un item
+const changeItemStatus = async (req = request, res = response) => {
+  try {
+    const { id } = req.params;
+    const { newStatus, notes } = req.body;
+    const userId = req.usuario._id;
+
+    // Buscar item con workOrder poblado
+    const item = await WorkOrderItem.findById(id)
+      .populate("workOrder", "numeroOrden estado eliminado")
+      .populate("repuesto", "nombre codigo")
+      .populate("servicio", "nombre");
+
+    if (!item || item.eliminado) {
+      return res.status(404).json({
+        success: false,
+        message: "Item no encontrado",
+      });
+    }
+
+    // Verificar que la orden no esté cerrada o cancelada
+    const estadoOrden = await WorkOrderStatus.findById(item.workOrder.estado);
+    if (estadoOrden && estadoOrden.tipo === "final") {
+      return res.status(400).json({
+        success: false,
+        message: `No se puede cambiar el estado de items en una orden ${estadoOrden.nombre}`,
+      });
+    }
+
+    // Usar el método del modelo para cambiar estado (incluye registro automático en historial)
+    const result = await item.cambiarEstado(newStatus, userId, notes);
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    // Si se completa un item con repuesto, procesar almacén
+    if (
+      newStatus === "completado" &&
+      item.tipo === "repuesto" &&
+      item.reserva
+    ) {
+      try {
+        const reservation = await Reservation.findById(item.reserva);
+        if (reservation && reservation.estado === "activo") {
+          // Aprobar la reserva (esto consume el stock)
+          reservation.estado = "consumido";
+          reservation.fechaConsumo = new Date();
+          await reservation.save();
+
+          // Crear Movement (nota de salida)
+          const Movement = require("../../../inventory/movements/movement.models");
+          const movement = new Movement({
+            item: item.repuesto,
+            warehouse: reservation.warehouse,
+            type: "salida",
+            cantidad: item.cantidad,
+            motivo: `Consumo para orden ${item.workOrder.numeroOrden}`,
+            ordenTrabajo: item.workOrder._id,
+            reserva: reservation._id,
+            usuario: userId,
+          });
+          await movement.save();
+
+          console.log(
+            `✅ Reserva consumida y movimiento creado para ${item.nombre}`
+          );
+        }
+      } catch (almacenError) {
+        console.error("Error procesando almacén:", almacenError);
+        // No fallar el cambio de estado por error en almacén
+        // pero registrar el error
+      }
+    }
+
+    // Si se cancela un item con reserva, liberar la reserva
+    if (newStatus === "cancelado" && item.reserva) {
+      try {
+        const reservation = await Reservation.findById(item.reserva);
+        if (reservation && reservation.estado === "activo") {
+          reservation.estado = "cancelado";
+          reservation.fechaCancelacion = new Date();
+          await reservation.save();
+
+          console.log(`✅ Reserva cancelada para ${item.nombre}`);
+        }
+      } catch (almacenError) {
+        console.error("Error cancelando reserva:", almacenError);
+      }
+    }
+
+    // Poblar datos actualizados para respuesta
+    await item.populate([
+      { path: "servicio", select: "nombre" },
+      { path: "repuesto", select: "nombre" },
+    ]);
+
+    res.json({
+      success: true,
+      message: "Estado del item actualizado exitosamente",
+      data: item,
+    });
+  } catch (error) {
+    console.error("Error al cambiar estado de item:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error interno del servidor",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 module.exports = {
   getWorkOrderItems,
   getWorkOrderItemById,
@@ -439,4 +561,5 @@ module.exports = {
   updateWorkOrderItem,
   completeWorkOrderItem,
   deleteWorkOrderItem,
+  changeItemStatus,
 };

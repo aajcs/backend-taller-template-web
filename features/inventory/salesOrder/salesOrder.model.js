@@ -12,7 +12,11 @@ const SalesLineSchema = new Schema({
 const SalesOrderSchema = new Schema(
   {
     numero: { type: String, required: true, unique: true },
-    cliente: { type: String },
+    cliente: {
+      type: Schema.Types.ObjectId,
+      ref: "Customer",
+      required: [true, "El cliente es obligatorio"],
+    },
     fecha: { type: Date, default: Date.now },
     estado: {
       type: String,
@@ -43,6 +47,13 @@ const SalesOrderSchema = new Schema(
 );
 
 SalesOrderSchema.plugin(auditPlugin);
+
+// Índices para optimizar consultas
+SalesOrderSchema.index({ cliente: 1, fecha: -1 }); // Órdenes por cliente ordenadas por fecha
+SalesOrderSchema.index({ cliente: 1, estado: 1 }); // Filtrar por cliente y estado
+SalesOrderSchema.index({ cliente: 1, eliminado: 1 }); // Excluir eliminados por cliente
+SalesOrderSchema.index({ numero: 1 }); // Búsqueda rápida por número
+SalesOrderSchema.index({ estado: 1, fecha: -1 }); // Órdenes por estado
 
 SalesOrderSchema.set("toJSON", {
   transform: (doc, ret) => {

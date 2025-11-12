@@ -157,6 +157,17 @@ const serviceSchema = new Schema(
       type: Boolean,
       default: false,
     },
+
+    // Auditoría
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "Usuario",
+    },
+
+    updatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "Usuario",
+    },
   },
   {
     timestamps: true, // createdAt, updatedAt

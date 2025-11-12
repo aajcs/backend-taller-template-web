@@ -22,6 +22,12 @@ const populateOptions = [
       },
     },
   },
+  // Virtual field para órdenes de venta asociadas
+  {
+    path: "salesOrders",
+    select: "numero fecha estado items",
+    options: { limit: 10 }, // Últimas 10 órdenes
+  },
 ];
 
 /**
@@ -394,6 +400,88 @@ const customerVehiclesGet = async (req = request, res = response) => {
   }
 };
 
+/**
+ * Obtener estadísticas de compras de un cliente
+ * GET /api/customers/:id/estadisticas-compras
+ */
+const customerEstadisticasCompras = async (req = request, res = response) => {
+  try {
+    const { id } = req.params;
+
+    const customer = await Customer.findById(id);
+
+    if (!customer || customer.eliminado) {
+      return res.status(404).json({
+        ok: false,
+        msg: "Cliente no encontrado",
+      });
+    }
+
+    // Obtener estadísticas usando el método del modelo
+    const estadisticas = await customer.getEstadisticasCompras();
+    const ultimaOrden = await customer.getUltimaOrden();
+    const tieneOrdenesPendientes = await customer.tieneOrdenesPendientes();
+
+    res.json({
+      ok: true,
+      cliente: {
+        id: customer.id,
+        nombre: customer.nombre,
+        tipo: customer.tipo,
+        correo: customer.correo,
+      },
+      estadisticas,
+      ultimaOrden,
+      tieneOrdenesPendientes,
+    });
+  } catch (error) {
+    console.error("Error en customerEstadisticasCompras:", error);
+    res.status(500).json({
+      ok: false,
+      msg: "Error interno del servidor",
+    });
+  }
+};
+
+/**
+ * Obtener historial de órdenes de un cliente
+ * GET /api/customers/:id/historial-ordenes
+ */
+const customerHistorialOrdenes = async (req = request, res = response) => {
+  try {
+    const { id } = req.params;
+    const { limite = 10 } = req.query;
+
+    const customer = await Customer.findById(id);
+
+    if (!customer || customer.eliminado) {
+      return res.status(404).json({
+        ok: false,
+        msg: "Cliente no encontrado",
+      });
+    }
+
+    // Obtener historial usando el método del modelo
+    const ordenes = await customer.getHistorialOrdenes(Number(limite));
+
+    res.json({
+      ok: true,
+      cliente: {
+        id: customer.id,
+        nombre: customer.nombre,
+      },
+      total: ordenes.length,
+      ordenes,
+    });
+  } catch (error) {
+    console.error("Error en customerHistorialOrdenes:", error);
+    res.status(500).json({
+      ok: false,
+      msg: "Error interno del servidor",
+    });
+  }
+};
+
 module.exports = {
   customersGet,
   customerGet,
@@ -403,4 +491,6 @@ module.exports = {
   customerPut,
   customerDelete,
   customerVehiclesGet,
+  customerEstadisticasCompras,
+  customerHistorialOrdenes,
 };

@@ -114,9 +114,20 @@ module.exports = {
           warehouse: warehouseFrom,
         }).session(session);
         if (!stockFrom) throw new Error("No hay stock en el warehouse origen");
-        const disponibles =
-          (stockFrom.cantidad || 0) - (stockFrom.reservado || 0);
-        if (disponibles < cantidad) throw new Error("No hay stock disponible");
+
+        // If consuming a reservation, check total stock; otherwise check available stock
+        if (reserva) {
+          // Consuming a reservation: check total stock (cantidad includes reserved)
+          if (stockFrom.cantidad < cantidad)
+            throw new Error("No hay stock suficiente");
+        } else {
+          // Not consuming a reservation: check available stock (excluding reserved)
+          const disponibles =
+            (stockFrom.cantidad || 0) - (stockFrom.reservado || 0);
+          if (disponibles < cantidad)
+            throw new Error("No hay stock disponible");
+        }
+
         stockFrom.cantidad = stockFrom.cantidad - cantidad;
         // if consuming a reserva, decrement reservado as well and update Reservation
         if (reserva) {

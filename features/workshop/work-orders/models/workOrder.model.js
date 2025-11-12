@@ -159,6 +159,17 @@ const workOrderSchema = new Schema(
       min: 0,
     },
 
+    // Auditoría
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    updatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+
     // Eliminación lógica
     eliminado: {
       type: Boolean,
@@ -189,6 +200,12 @@ workOrderSchema.index({ fechaApertura: -1 });
 
 // Método para calcular costo total automáticamente
 workOrderSchema.methods.calcularCostoTotal = function () {
+  // Inicializar campos si son undefined
+  this.subtotalRepuestos = this.subtotalRepuestos || 0;
+  this.subtotalServicios = this.subtotalServicios || 0;
+  this.descuento = this.descuento || 0;
+  this.impuesto = this.impuesto || 0;
+
   this.costoTotal =
     this.subtotalRepuestos +
     this.subtotalServicios -
@@ -246,6 +263,7 @@ workOrderSchema.methods.cambiarEstado = async function (
   usuarioId,
   notas = ""
 ) {
+  console.log(`🚀 INICIO cambiarEstado: nuevoEstadoCodigo='${nuevoEstadoCodigo}', usuarioId='${usuarioId}'`);
   const WorkOrderStatus = require("./workOrderStatus.model");
   const WorkOrderHistory = require("./workOrderHistory.model");
 
@@ -262,6 +280,8 @@ workOrderSchema.methods.cambiarEstado = async function (
         message: `Estado '${nuevoEstadoCodigo}' no válido o inactivo`,
       };
     }
+
+    console.log(`✅ Estado encontrado: ${nuevoEstado.nombre} (código: ${nuevoEstado.codigo})`);
 
     // Obtener el estado actual
     const estadoActual = await WorkOrderStatus.findById(this.estado);
@@ -307,11 +327,16 @@ workOrderSchema.methods.cambiarEstado = async function (
     this.estado = nuevoEstado._id;
 
     // Actualizar fechas según el estado
-    if (nuevoEstadoCodigo === "CERRADA_FACTURADA") {
+    console.log(`🔍 Verificando condición FACTURADO: nuevoEstadoCodigo='${nuevoEstadoCodigo}' === 'FACTURADO'? ${nuevoEstadoCodigo === "FACTURADO"}`);
+    if (nuevoEstadoCodigo === "FACTURADO") {
+      console.log(
+        "🎯 Estado FACTURADO detectado - iniciando generación de factura"
+      );
       this.fechaCierre = new Date();
 
       // Generar factura automáticamente
       try {
+        console.log("🔄 Iniciando generación automática de factura...");
         const Invoice = require("../../billing/models/invoice.model");
         const WorkOrderItem = require("./workOrderItem.model");
 
@@ -322,6 +347,7 @@ workOrderSchema.methods.cambiarEstado = async function (
         });
 
         if (!existingInvoice) {
+          console.log("📋 Buscando items de la orden...");
           // Obtener items de la orden
           const workOrderItems = await WorkOrderItem.find({
             workOrder: this._id,
@@ -330,89 +356,95 @@ workOrderSchema.methods.cambiarEstado = async function (
             .populate("servicio", "nombre descripcion precioBase")
             .populate("repuesto", "nombre codigo precio");
 
+          console.log(
+            `📦 Encontrados ${workOrderItems.length} items en la orden`
+          );
+
+          // DEBUG: Mostrar estado de cada item
+          workOrderItems.forEach((item, index) => {
+            console.log(`   Item ${index + 1}: ${item.nombre} - Estado: ${item.estado}`);
+          });
+
           if (workOrderItems.length > 0) {
-            // Generar número de factura usando el método del modelo existente
-            const invoiceNumber = await Invoice.generateInvoiceNumber();
+            // Filtrar solo items completados
+            const completedItems = workOrderItems.filter(item => item.estado === "completado");
+            console.log(`✅ Items completados: ${completedItems.length} de ${workOrderItems.length}`);
 
-            // Crear factura compatible con el modelo billing
-            const invoice = new Invoice({
-              invoiceNumber,
-              workOrder: this._id,
-              customer: this.customer._id, // El modelo billing espera ObjectId de Usuario
-              issueDate: new Date(),
-              dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
-              status: "emitida",
-              notes: `Factura generada automáticamente al cerrar la orden ${this.numeroOrden}`,
-              createdBy: usuarioId,
-            });
+            if (completedItems.length > 0) {
+              // Generar número de factura usando el método del modelo existente
+              console.log("🔢 Generando número de factura...");
+              const invoiceNumber = await Invoice.generateInvoiceNumber();
+              console.log(`📄 Número de factura generado: ${invoiceNumber}`);
 
-            // Crear ítems de la factura (embebidos en la factura)
-            const invoiceItems = [];
-            for (const item of workOrderItems) {
-              if (item.estado === "completado") {
-                // Solo items completados
-                invoiceItems.push({
-                  type: item.tipo === "servicio" ? "service" : "part", // Mapear tipos
-                  service: item.servicio?._id,
-                  part: item.repuesto?._id,
-                  description:
-                    item.nombre ||
-                    (item.servicio
-                      ? item.servicio.nombre
-                      : item.repuesto.nombre),
-                  quantity: item.cantidad,
-                  unitPrice: item.precioUnitario,
-                  subtotal: item.cantidad * item.precioUnitario, // Calcular subtotal
-                  notes: item.notas,
-                });
-              }
-            }
+              // Crear factura compatible con el modelo billing
+              console.log("📝 Creando factura...");
+              console.log(`👤 Customer ID: ${this.customer}`);
+              const invoice = new Invoice({
+                invoiceNumber,
+                workOrder: this._id,
+                customer: this.customer, // El modelo billing espera ObjectId de Customer
+                issueDate: new Date(),
+                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
+                status: "emitida",
+                notes: `Factura generada automáticamente al cerrar la orden ${this.numeroOrden}`,
+                createdBy: usuarioId,
+              });
 
-            if (invoiceItems.length > 0) {
-              // Asignar items a la factura
-              invoice.items = invoiceItems;
-
-              // Aplicar IVA (16% para Colombia)
-              await invoice.applyIVA(16);
-
-              // Guardar factura
-              await invoice.save();
-
-              // Actualizar referencia en la orden
-              this.invoice = invoice._id;
-            }
-
-            // Al cerrar la OT, solo verificar que las reservas estén entregadas/consumidas
-            // NO consumir automáticamente - esto se hace cuando se entrega el repuesto
-            try {
-              const { Reservation } = require("../../inventory/models");
-
-              for (const item of workOrderItems) {
-                if (item.tipo === "repuesto" && item.reserva) {
-                  const reserva = await Reservation.findById(item.reserva);
-                  if (
-                    reserva &&
-                    reserva.estado !== "consumido" &&
-                    reserva.estado !== "entregado"
-                  ) {
-                    console.warn(
-                      `⚠️ Advertencia: Reserva ${reserva._id} para ${item.nombre} no ha sido entregada/consumida`
-                    );
-                    // Opcionalmente podrías bloquear el cierre de la OT si hay reservas no entregadas
-                  }
+              // Crear ítems de la factura (embebidos en la factura)
+              const invoiceItems = [];
+              for (const item of completedItems) {
+                if (item.estado === "completado") {
+                  // Solo items completados
+                  invoiceItems.push({
+                    type: item.tipo === "servicio" ? "service" : "part", // Mapear tipos
+                    service: item.servicio?._id,
+                    part: item.repuesto?._id,
+                    description:
+                      item.nombre ||
+                      (item.servicio
+                        ? item.servicio.nombre
+                        : item.repuesto.nombre),
+                    quantity: item.cantidad,
+                    unitPrice: item.precioUnitario,
+                    subtotal: item.cantidad * item.precioUnitario, // Calcular subtotal
+                    notes: item.notas,
+                  });
                 }
               }
-            } catch (verificationError) {
-              console.error("Error al verificar reservas:", verificationError);
+
+              console.log(
+                `📋 ${invoiceItems.length} items preparados para factura`
+              );
+
+              if (invoiceItems.length > 0) {
+                // Asignar items a la factura
+                invoice.items = invoiceItems;
+
+                // Aplicar IVA (16% para Colombia)
+                console.log("💰 Aplicando IVA...");
+                await invoice.applyIVA(16);
+
+                // Guardar factura
+                console.log("💾 Guardando factura...");
+                await invoice.save();
+                console.log(
+                  `✅ Factura guardada exitosamente: ${invoice.invoiceNumber}`
+                );
+              } else {
+                console.log("⚠️ No hay items válidos para crear factura");
+              }
+            } else {
+              console.log("⚠️ No hay items completados para facturar");
             }
+          } else {
+            console.log("⚠️ No se encontraron items en la orden de trabajo");
           }
+        } else {
+          console.log("⚠️ Ya existe una factura para esta orden de trabajo");
         }
-      } catch (invoiceError) {
-        console.error(
-          "Error al generar factura automáticamente:",
-          invoiceError
-        );
-        // No fallar el cambio de estado por error en facturación
+      } catch (error) {
+        console.error("❌ Error en generación automática de factura:", error);
+        // No fallar la operación si hay error en facturación
       }
     }
 
@@ -471,10 +503,121 @@ workOrderSchema.plugin(mongoosePaginate);
 
 // Plugin de auditoría (si existe)
 try {
-  const auditPlugin = require("../../audit.plugin");
+  const auditPlugin = require("../../models/plugins/audit");
   workOrderSchema.plugin(auditPlugin);
 } catch (error) {
   // Plugin no disponible, continuar sin él
 }
+
+// Hook para registrar creación de orden en historial
+workOrderSchema.post("save", async function (doc) {
+  // Solo registrar si es una creación nueva (no actualización)
+  if (this.isNew) {
+    try {
+      const WorkOrderHistory = require("./workOrderHistory.model");
+      await WorkOrderHistory.create({
+        workOrder: doc._id,
+        tipo: "creacion_ot",
+        descripcion: `Orden de trabajo ${doc.numeroOrden} creada`,
+        usuario: doc.createdBy,
+        detalles: {
+          customer: doc.customer,
+          vehicle: doc.vehicle,
+          priority: doc.prioridad,
+          motivo: doc.motivo,
+        },
+        fecha: new Date(),
+      });
+    } catch (error) {
+      console.error("Error al registrar creación en historial:", error);
+    }
+  }
+});
+
+// Hook para registrar cambios en campos importantes
+workOrderSchema.pre("save", async function (next) {
+  try {
+    // Solo procesar si no es una creación nueva
+    if (!this.isNew) {
+      const WorkOrderHistory = require("./workOrderHistory.model");
+      const User = require("../../../user/user.models");
+
+      // Obtener documento original
+      const original = await this.constructor.findById(this._id);
+
+      if (original) {
+        // Registrar cambio de técnico asignado
+        if (
+          this.tecnicoAsignado?.toString() !==
+          original.tecnicoAsignado?.toString()
+        ) {
+          const tecnicoAnterior = original.tecnicoAsignado
+            ? await User.findById(original.tecnicoAsignado)
+            : null;
+          const tecnicoNuevo = this.tecnicoAsignado
+            ? await User.findById(this.tecnicoAsignado)
+            : null;
+
+          await WorkOrderHistory.create({
+            workOrder: this._id,
+            tipo: "asignacion_tecnico",
+            descripcion: `Técnico asignado cambiado`,
+            usuario: this.updatedBy || this.createdBy,
+            tecnicoAnterior: tecnicoAnterior?._id,
+            tecnicoNuevo: tecnicoNuevo?._id,
+            detalles: {
+              tecnicoAnterior: tecnicoAnterior
+                ? `${tecnicoAnterior.nombre} ${tecnicoAnterior.apellido || ""}`.trim()
+                : null,
+              tecnicoNuevo: tecnicoNuevo
+                ? `${tecnicoNuevo.nombre} ${tecnicoNuevo.apellido || ""}`.trim()
+                : null,
+            },
+            fecha: new Date(),
+          });
+        }
+
+        // Registrar cambio de prioridad
+        if (this.prioridad !== original.prioridad) {
+          await WorkOrderHistory.create({
+            workOrder: this._id,
+            tipo: "actualizacion_costos",
+            descripcion: `Prioridad cambiada de '${original.prioridad}' a '${this.prioridad}'`,
+            usuario: this.updatedBy || this.createdBy,
+            detalles: {
+              campo: "prioridad",
+              valorAnterior: original.prioridad,
+              valorNuevo: this.prioridad,
+            },
+            fecha: new Date(),
+          });
+        }
+
+        // Registrar actualización de costos
+        if (this.costoTotal !== original.costoTotal) {
+          await WorkOrderHistory.create({
+            workOrder: this._id,
+            tipo: "actualizacion_costos",
+            descripcion: `Costo total actualizado: $${original.costoTotal || 0} → $${this.costoTotal || 0}`,
+            usuario: this.updatedBy || this.createdBy,
+            detalles: {
+              costoAnterior: original.costoTotal,
+              costoNuevo: this.costoTotal,
+              subtotalServicios: this.subtotalServicios,
+              subtotalRepuestos: this.subtotalRepuestos,
+              descuento: this.descuento,
+              impuesto: this.impuesto,
+            },
+            fecha: new Date(),
+          });
+        }
+      }
+    }
+    next();
+  } catch (error) {
+    console.error("Error en pre-save hook:", error);
+    next(error);
+  }
+});
 
 module.exports = model("WorkOrder", workOrderSchema);
