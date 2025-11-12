@@ -263,7 +263,9 @@ workOrderSchema.methods.cambiarEstado = async function (
   usuarioId,
   notas = ""
 ) {
-  console.log(`🚀 INICIO cambiarEstado: nuevoEstadoCodigo='${nuevoEstadoCodigo}', usuarioId='${usuarioId}'`);
+  console.log(
+    `🚀 INICIO cambiarEstado: nuevoEstadoCodigo='${nuevoEstadoCodigo}', usuarioId='${usuarioId}'`
+  );
   const WorkOrderStatus = require("./workOrderStatus.model");
   const WorkOrderHistory = require("./workOrderHistory.model");
 
@@ -281,7 +283,9 @@ workOrderSchema.methods.cambiarEstado = async function (
       };
     }
 
-    console.log(`✅ Estado encontrado: ${nuevoEstado.nombre} (código: ${nuevoEstado.codigo})`);
+    console.log(
+      `✅ Estado encontrado: ${nuevoEstado.nombre} (código: ${nuevoEstado.codigo})`
+    );
 
     // Obtener el estado actual
     const estadoActual = await WorkOrderStatus.findById(this.estado);
@@ -327,7 +331,9 @@ workOrderSchema.methods.cambiarEstado = async function (
     this.estado = nuevoEstado._id;
 
     // Actualizar fechas según el estado
-    console.log(`🔍 Verificando condición FACTURADO: nuevoEstadoCodigo='${nuevoEstadoCodigo}' === 'FACTURADO'? ${nuevoEstadoCodigo === "FACTURADO"}`);
+    console.log(
+      `🔍 Verificando condición FACTURADO: nuevoEstadoCodigo='${nuevoEstadoCodigo}' === 'FACTURADO'? ${nuevoEstadoCodigo === "FACTURADO"}`
+    );
     if (nuevoEstadoCodigo === "FACTURADO") {
       console.log(
         "🎯 Estado FACTURADO detectado - iniciando generación de factura"
@@ -362,13 +368,19 @@ workOrderSchema.methods.cambiarEstado = async function (
 
           // DEBUG: Mostrar estado de cada item
           workOrderItems.forEach((item, index) => {
-            console.log(`   Item ${index + 1}: ${item.nombre} - Estado: ${item.estado}`);
+            console.log(
+              `   Item ${index + 1}: ${item.nombre} - Estado: ${item.estado}`
+            );
           });
 
           if (workOrderItems.length > 0) {
             // Filtrar solo items completados
-            const completedItems = workOrderItems.filter(item => item.estado === "completado");
-            console.log(`✅ Items completados: ${completedItems.length} de ${workOrderItems.length}`);
+            const completedItems = workOrderItems.filter(
+              (item) => item.estado === "completado"
+            );
+            console.log(
+              `✅ Items completados: ${completedItems.length} de ${workOrderItems.length}`
+            );
 
             if (completedItems.length > 0) {
               // Generar número de factura usando el método del modelo existente

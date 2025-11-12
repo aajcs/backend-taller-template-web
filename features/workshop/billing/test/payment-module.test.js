@@ -122,7 +122,9 @@ async function testPaymentModule() {
 
     const { token, usuario: loggedUser } = loginResponse.data;
     console.log("✅ Autenticado correctamente");
-    console.log(`   Usuario: ${loggedUser.nombre} ${loggedUser.apellido || ""}`);
+    console.log(
+      `   Usuario: ${loggedUser.nombre} ${loggedUser.apellido || ""}`
+    );
 
     const headers = {
       "Content-Type": "application/json",
@@ -146,7 +148,8 @@ async function testPaymentModule() {
       method: "GET",
       headers,
     });
-    const customers = customersResponse.data.customers || customersResponse.data.data || [];
+    const customers =
+      customersResponse.data.customers || customersResponse.data.data || [];
     console.log(`✅ ${customers.length} clientes disponibles`);
 
     // Vehículos
@@ -157,7 +160,8 @@ async function testPaymentModule() {
       method: "GET",
       headers,
     });
-    const vehicles = vehiclesResponse.data.vehicles || vehiclesResponse.data.data || [];
+    const vehicles =
+      vehiclesResponse.data.vehicles || vehiclesResponse.data.data || [];
     console.log(`✅ ${vehicles.length} vehículos disponibles`);
 
     // Servicios
@@ -168,7 +172,8 @@ async function testPaymentModule() {
       method: "GET",
       headers,
     });
-    const services = servicesResponse.data.services || servicesResponse.data.data || [];
+    const services =
+      servicesResponse.data.services || servicesResponse.data.data || [];
     console.log(`✅ ${services.length} servicios disponibles`);
 
     // Repuestos
@@ -179,7 +184,8 @@ async function testPaymentModule() {
       method: "GET",
       headers,
     });
-    const repuestos = repuestosResponse.data.items || repuestosResponse.data.data || [];
+    const repuestos =
+      repuestosResponse.data.items || repuestosResponse.data.data || [];
     console.log(`✅ ${repuestos.length} repuestos disponibles`);
 
     // ============================================
@@ -195,8 +201,11 @@ async function testPaymentModule() {
       kilometraje: 50000,
       tecnicoAsignado: loggedUser._id,
       prioridad: "normal",
-      descripcionProblema: "Vehículo requiere mantenimiento integral para validar sistema de pagos",
-      fechaEstimadaEntrega: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      descripcionProblema:
+        "Vehículo requiere mantenimiento integral para validar sistema de pagos",
+      fechaEstimadaEntrega: new Date(
+        Date.now() + 7 * 24 * 60 * 60 * 1000
+      ).toISOString(),
       items: [
         {
           tipo: "servicio",
@@ -240,7 +249,10 @@ async function testPaymentModule() {
     );
 
     if (createWorkOrderResponse.statusCode !== 201) {
-      console.error("❌ Error creando orden de trabajo:", createWorkOrderResponse.data);
+      console.error(
+        "❌ Error creando orden de trabajo:",
+        createWorkOrderResponse.data
+      );
       return;
     }
 
@@ -249,10 +261,15 @@ async function testPaymentModule() {
     console.log(`   Número: ${workOrder.numeroOrden}`);
     console.log(`   Cliente: ${customers[0].nombre}`);
     console.log(`   Vehículo: ${vehicles[0].placa || vehicles[0].marca}`);
-    console.log(`   Ítems: ${workOrderData.items.length} (1 servicio + 2 repuestos)`);
+    console.log(
+      `   Ítems: ${workOrderData.items.length} (1 servicio + 2 repuestos)`
+    );
 
     // Calcular total esperado
-    const expectedTotal = workOrderData.items.reduce((sum, item) => sum + item.precioFinal, 0);
+    const expectedTotal = workOrderData.items.reduce(
+      (sum, item) => sum + item.precioFinal,
+      0
+    );
     console.log(`   💰 Total esperado: $${expectedTotal}`);
 
     // ============================================
@@ -262,7 +279,13 @@ async function testPaymentModule() {
     console.log("-".repeat(70));
 
     // Flujo: RECIBIDO → DIAGNOSTICO → PRESUPUESTO → EN_PROCESO → FINALIZADO → FACTURADO
-    const statusFlow = ["DIAGNOSTICO", "PRESUPUESTO", "EN_PROCESO", "FINALIZADO", "FACTURADO"];
+    const statusFlow = [
+      "DIAGNOSTICO",
+      "PRESUPUESTO",
+      "EN_PROCESO",
+      "FINALIZADO",
+      "FACTURADO",
+    ];
 
     for (const statusCode of statusFlow) {
       console.log(`   ➡️ Cambiando a: ${statusCode}`);
@@ -284,10 +307,13 @@ async function testPaymentModule() {
         );
 
         if (changeResponse.statusCode !== 200) {
-          console.error(`❌ Error cambiando estado a ${statusCode}:`, changeResponse.data);
+          console.error(
+            `❌ Error cambiando estado a ${statusCode}:`,
+            changeResponse.data
+          );
           return;
         }
-        
+
         console.log(`      ✅ Estado cambiado a ${statusCode}`);
       } else {
         const changeResponse = await makeRequest(
@@ -305,10 +331,13 @@ async function testPaymentModule() {
         );
 
         if (changeResponse.statusCode !== 200) {
-          console.error(`❌ Error cambiando estado a ${statusCode}:`, changeResponse.data);
+          console.error(
+            `❌ Error cambiando estado a ${statusCode}:`,
+            changeResponse.data
+          );
           return;
         }
-        
+
         console.log(`      ✅ Estado cambiado a ${statusCode}`);
       }
     }
@@ -333,18 +362,35 @@ async function testPaymentModule() {
       return;
     }
 
-    const invoices = invoicesResponse.data.invoices || invoicesResponse.data.data || invoicesResponse.data || [];
-    console.log(`   📄 Encontradas ${Array.isArray(invoices) ? invoices.length : 'N/A'} facturas`);
-    
+    const invoices =
+      invoicesResponse.data.invoices ||
+      invoicesResponse.data.data ||
+      invoicesResponse.data ||
+      [];
+    console.log(
+      `   📄 Encontradas ${Array.isArray(invoices) ? invoices.length : "N/A"} facturas`
+    );
+
     let invoice = null;
     if (Array.isArray(invoices)) {
-      invoice = invoices.find(inv => inv.workOrder && (inv.workOrder._id === workOrder._id || inv.workOrder === workOrder._id));
-    } else if (invoices.workOrder && (invoices.workOrder._id === workOrder._id || invoices.workOrder === workOrder._id)) {
+      invoice = invoices.find(
+        (inv) =>
+          inv.workOrder &&
+          (inv.workOrder._id === workOrder._id ||
+            inv.workOrder === workOrder._id)
+      );
+    } else if (
+      invoices.workOrder &&
+      (invoices.workOrder._id === workOrder._id ||
+        invoices.workOrder === workOrder._id)
+    ) {
       invoice = invoices;
     }
 
     if (!invoice) {
-      console.error("❌ No se encontró la factura creada para la orden de trabajo");
+      console.error(
+        "❌ No se encontró la factura creada para la orden de trabajo"
+      );
       console.log("   WorkOrder ID:", workOrder._id);
       console.log("   Facturas encontradas:", invoices);
       return;
@@ -352,7 +398,9 @@ async function testPaymentModule() {
 
     testInvoice = invoice;
     console.log("✅ Factura encontrada");
-    console.log(`   Número: ${testInvoice.invoiceNumber || testInvoice.number || testInvoice._id}`);
+    console.log(
+      `   Número: ${testInvoice.invoiceNumber || testInvoice.number || testInvoice._id}`
+    );
     console.log(`   Total: $${testInvoice.total}`);
     console.log(`   Balance: $${testInvoice.balance || testInvoice.total}`);
     console.log(`   Estado: ${testInvoice.status || "borrador"}`);
@@ -384,7 +432,10 @@ async function testPaymentModule() {
     );
 
     if (cashPaymentResponse.statusCode !== 201) {
-      console.error("❌ Error creando pago en efectivo:", cashPaymentResponse.data);
+      console.error(
+        "❌ Error creando pago en efectivo:",
+        cashPaymentResponse.data
+      );
     } else {
       const cashPayment = cashPaymentResponse.data.payment;
       createdPayments.push(cashPayment);
@@ -441,7 +492,10 @@ async function testPaymentModule() {
     );
 
     if (createPartialInvoiceResponse.statusCode !== 201) {
-      console.error("❌ Error creando factura parcial:", createPartialInvoiceResponse.data);
+      console.error(
+        "❌ Error creando factura parcial:",
+        createPartialInvoiceResponse.data
+      );
       return;
     }
 
@@ -476,7 +530,10 @@ async function testPaymentModule() {
     );
 
     if (transferPaymentResponse.statusCode !== 201) {
-      console.error("❌ Error creando pago con transferencia:", transferPaymentResponse.data);
+      console.error(
+        "❌ Error creando pago con transferencia:",
+        transferPaymentResponse.data
+      );
     } else {
       const transferPayment = transferPaymentResponse.data.payment;
       createdPayments.push(transferPayment);
@@ -512,14 +569,19 @@ async function testPaymentModule() {
     );
 
     if (cardPaymentResponse.statusCode !== 201) {
-      console.error("❌ Error creando pago con tarjeta:", cardPaymentResponse.data);
+      console.error(
+        "❌ Error creando pago con tarjeta:",
+        cardPaymentResponse.data
+      );
     } else {
       const cardPayment = cardPaymentResponse.data.payment;
       createdPayments.push(cardPayment);
       console.log("✅ Pago con tarjeta creado");
       console.log(`   ID: ${cardPayment._id}`);
       console.log(`   Monto: $${cardPayment.amount}`);
-      console.log(`   Tarjeta: **** ${cardPayment.paymentDetails.cardLastFour}`);
+      console.log(
+        `   Tarjeta: **** ${cardPayment.paymentDetails.cardLastFour}`
+      );
     }
 
     // Pago final para completar la factura
@@ -598,7 +660,10 @@ async function testPaymentModule() {
 
     let pendingPayment = null;
     if (pendingPaymentResponse.statusCode !== 201) {
-      console.error("❌ Error creando pago pendiente:", pendingPaymentResponse.data);
+      console.error(
+        "❌ Error creando pago pendiente:",
+        pendingPaymentResponse.data
+      );
     } else {
       pendingPayment = pendingPaymentResponse.data.payment;
       createdPayments.push(pendingPayment);
@@ -653,7 +718,10 @@ async function testPaymentModule() {
 
     let rejectPayment = null;
     if (rejectPaymentResponse.statusCode !== 201) {
-      console.error("❌ Error creando pago para rechazar:", rejectPaymentResponse.data);
+      console.error(
+        "❌ Error creando pago para rechazar:",
+        rejectPaymentResponse.data
+      );
     } else {
       rejectPayment = rejectPaymentResponse.data.payment;
       createdPayments.push(rejectPayment);
@@ -690,7 +758,9 @@ async function testPaymentModule() {
     console.log("-".repeat(70));
 
     // Actualizar un pago confirmado
-    const paymentToUpdate = createdPayments.find(p => p.status === "confirmado");
+    const paymentToUpdate = createdPayments.find(
+      (p) => p.status === "confirmado"
+    );
     if (paymentToUpdate) {
       console.log("\n📝 Actualizando pago confirmado...");
       const updateData = {
@@ -821,7 +891,9 @@ async function testPaymentModule() {
       const payments = paymentsResponse.data.data;
       console.log(`✅ Encontrados ${payments.length} pagos`);
       payments.forEach((payment, index) => {
-        console.log(`   ${index + 1}. ${payment.paymentMethod}: $${payment.amount} (${payment.status})`);
+        console.log(
+          `   ${index + 1}. ${payment.paymentMethod}: $${payment.amount} (${payment.status})`
+        );
       });
     }
 
@@ -839,12 +911,13 @@ async function testPaymentModule() {
       console.log("\n📊 Estado final de la factura:");
       console.log(`   Balance: $${finalInvoice.balance}`);
       console.log(`   Estado: ${finalInvoice.status}`);
-      console.log(`   Total pagado: $${finalInvoice.total - finalInvoice.balance}`);
+      console.log(
+        `   Total pagado: $${finalInvoice.total - finalInvoice.balance}`
+      );
     }
 
     console.log("\n🎉 TEST COMPLETADO EXITOSAMENTE");
     console.log("✅ Todas las funcionalidades de pagos han sido validadas");
-
   } catch (error) {
     console.error("\n❌ Error durante el test del módulo de pagos:", error);
   }
