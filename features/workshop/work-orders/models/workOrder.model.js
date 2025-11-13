@@ -376,7 +376,7 @@ workOrderSchema.methods.cambiarEstado = async function (
           if (workOrderItems.length > 0) {
             // Filtrar solo items completados
             const completedItems = workOrderItems.filter(
-              (item) => item.estado === "completado"
+              (item) => item.estado !== "completado"
             );
             console.log(
               `✅ Items completados: ${completedItems.length} de ${workOrderItems.length}`
@@ -405,7 +405,7 @@ workOrderSchema.methods.cambiarEstado = async function (
               // Crear ítems de la factura (embebidos en la factura)
               const invoiceItems = [];
               for (const item of completedItems) {
-                if (item.estado === "completado") {
+                if (item.estado !== "completado") {
                   // Solo items completados
                   invoiceItems.push({
                     type: item.tipo === "servicio" ? "service" : "part", // Mapear tipos

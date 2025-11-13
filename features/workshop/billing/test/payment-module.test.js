@@ -362,30 +362,24 @@ async function testPaymentModule() {
       return;
     }
 
-    const invoices =
-      invoicesResponse.data.invoices ||
-      invoicesResponse.data.data ||
-      invoicesResponse.data ||
-      [];
+    console.log("   📊 Respuesta de invoices:", JSON.stringify(invoicesResponse.data, null, 2).substring(0, 500) + "...");
+    const invoices = invoicesResponse.data.data.docs || [];
     console.log(
-      `   📄 Encontradas ${Array.isArray(invoices) ? invoices.length : "N/A"} facturas`
+      `   📄 Encontradas ${invoices.length} facturas`
     );
 
     let invoice = null;
-    if (Array.isArray(invoices)) {
-      invoice = invoices.find(
-        (inv) =>
-          inv.workOrder &&
-          (inv.workOrder._id === workOrder._id ||
-            inv.workOrder === workOrder._id)
-      );
-    } else if (
-      invoices.workOrder &&
-      (invoices.workOrder._id === workOrder._id ||
-        invoices.workOrder === workOrder._id)
-    ) {
-      invoice = invoices;
-    }
+    console.log("   🔍 Buscando factura para workOrder ID:", workOrder._id);
+    invoice = invoices.find(
+      (inv) => {
+        const match = inv.workOrder &&
+          ((inv.workOrder._id && inv.workOrder._id.toString() === workOrder._id) ||
+           (inv.workOrder.toString && inv.workOrder.toString() === workOrder._id) ||
+           inv.workOrder === workOrder._id);
+        if (match) console.log("   ✅ Factura encontrada:", inv.invoiceNumber);
+        return match;
+      }
+    );
 
     if (!invoice) {
       console.error(
@@ -418,6 +412,7 @@ async function testPaymentModule() {
       paymentMethod: "efectivo",
       reference: "TEST-CASH-001",
       notes: "Pago total en efectivo para testing",
+      paymentDate: new Date().toISOString(),
     };
 
     const cashPaymentResponse = await makeRequest(
@@ -437,7 +432,7 @@ async function testPaymentModule() {
         cashPaymentResponse.data
       );
     } else {
-      const cashPayment = cashPaymentResponse.data.payment;
+      const cashPayment = cashPaymentResponse.data.data;
       createdPayments.push(cashPayment);
       console.log("✅ Pago en efectivo creado");
       console.log(`   ID: ${cashPayment._id}`);
@@ -456,51 +451,119 @@ async function testPaymentModule() {
     });
 
     if (invoiceCheckResponse.statusCode === 200) {
-      const updatedInvoice = invoiceCheckResponse.data.invoice;
+      const updatedInvoice = invoiceCheckResponse.data.data;
       console.log(`   📊 Balance actualizado: $${updatedInvoice.balance}`);
       console.log(`   📊 Estado: ${updatedInvoice.status}`);
     }
 
-    // Crear nueva factura para pagos parciales
-    console.log("\n📄 Creando segunda factura para pagos parciales...");
-    const partialInvoiceData = {
-      customer: customer._id,
-      issueDate: new Date().toISOString(),
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      status: "emitida",
+    // Crear nueva orden de trabajo para pagos parciales
+    console.log("\n📄 Creando segunda orden de trabajo para pagos parciales...");
+    const partialWorkOrderData = {
+      customer: customers[0]._id,
+      vehicle: vehicles[0]._id,
+      motivo: "Mantenimiento para testing de pagos parciales",
+      kilometraje: 60000,
+      tecnicoAsignado: loggedUser._id,
+      prioridad: "normal",
+      descripcionProblema:
+        "Vehículo requiere mantenimiento para validar pagos parciales",
+      fechaEstimadaEntrega: new Date(
+        Date.now() + 7 * 24 * 60 * 60 * 1000
+      ).toISOString(),
       items: [
         {
-          type: "service",
-          description: "Servicio para pagos parciales",
-          quantity: 1,
-          unitPrice: 2000,
-          subtotal: 2000,
+          tipo: "servicio",
+          servicio: services[0]._id,
+          nombre: services[0].nombre || "Servicio de Prueba",
+          descripcion: "Servicio completo para testing",
+          cantidad: 1,
+          precioUnitario: 2000,
+          precioFinal: 2000,
         },
       ],
-      notes: "Factura para testing de pagos parciales",
     };
 
-    const createPartialInvoiceResponse = await makeRequest(
+    const createPartialWorkOrderResponse = await makeRequest(
       {
         hostname: "localhost",
         port: 4000,
-        path: "/api/invoices",
+        path: "/api/work-orders",
         method: "POST",
         headers,
       },
-      partialInvoiceData
+      partialWorkOrderData
     );
 
-    if (createPartialInvoiceResponse.statusCode !== 201) {
+    if (createPartialWorkOrderResponse.statusCode !== 201) {
       console.error(
-        "❌ Error creando factura parcial:",
-        createPartialInvoiceResponse.data
+        "❌ Error creando orden de trabajo parcial:",
+        createPartialWorkOrderResponse.data
       );
       return;
     }
 
-    const partialInvoice = createPartialInvoiceResponse.data.invoice;
-    console.log("✅ Factura parcial creada");
+    const partialWorkOrder = createPartialWorkOrderResponse.data.workOrder;
+    console.log("✅ Orden de trabajo parcial creada");
+    console.log(`   Número: ${partialWorkOrder.numeroOrden}`);
+
+    // Llevar a FACTURADO
+    for (const statusCode of [
+      "DIAGNOSTICO",
+      "PRESUPUESTO",
+      "EN_PROCESO",
+      "FINALIZADO",
+      "FACTURADO",
+    ]) {
+      const changeResponse = await makeRequest(
+        {
+          hostname: "localhost",
+          port: 4000,
+          path: `/api/work-orders/${partialWorkOrder._id}/change-status`,
+          method: "POST",
+          headers,
+        },
+        {
+          newStatus: statusCode,
+          notes: `Cambio automático para testing de pagos parciales`,
+        }
+      );
+
+      if (changeResponse.statusCode !== 200) {
+        console.error(
+          `❌ Error cambiando a ${statusCode}:`,
+          changeResponse.data
+        );
+        return;
+      }
+    }
+
+    // Obtener la invoice creada
+    const partialInvoicesResponse = await makeRequest({
+      hostname: "localhost",
+      port: 4000,
+      path: "/api/invoices",
+      method: "GET",
+      headers,
+    });
+
+    if (partialInvoicesResponse.statusCode !== 200) {
+      console.error("❌ Error obteniendo facturas:", partialInvoicesResponse.data);
+      return;
+    }
+
+    const partialInvoices = partialInvoicesResponse.data.data.docs || [];
+    const partialInvoice = partialInvoices.find(
+      (inv) =>
+        inv.workOrder &&
+        inv.workOrder._id === partialWorkOrder._id
+    );
+
+    if (!partialInvoice) {
+      console.error("❌ No se encontró la factura parcial");
+      return;
+    }
+
+    console.log("✅ Factura parcial encontrada");
     console.log(`   Número: ${partialInvoice.invoiceNumber}`);
     console.log(`   Total: $${partialInvoice.total}`);
 
@@ -512,6 +575,7 @@ async function testPaymentModule() {
       paymentMethod: "transferencia",
       reference: "TEST-TRANSFER-001",
       notes: "Pago parcial con transferencia bancaria",
+      paymentDate: new Date().toISOString(),
       paymentDetails: {
         bankName: "Banco de Prueba",
         accountNumber: "1234567890",
@@ -535,7 +599,7 @@ async function testPaymentModule() {
         transferPaymentResponse.data
       );
     } else {
-      const transferPayment = transferPaymentResponse.data.payment;
+      const transferPayment = transferPaymentResponse.data.data;
       createdPayments.push(transferPayment);
       console.log("✅ Pago con transferencia creado");
       console.log(`   ID: ${transferPayment._id}`);
@@ -551,6 +615,7 @@ async function testPaymentModule() {
       paymentMethod: "tarjeta_credito",
       reference: "TEST-CARD-001",
       notes: "Pago parcial con tarjeta de crédito",
+      paymentDate: new Date().toISOString(),
       paymentDetails: {
         cardLastFour: "1234",
         cardType: "visa",
@@ -574,7 +639,7 @@ async function testPaymentModule() {
         cardPaymentResponse.data
       );
     } else {
-      const cardPayment = cardPaymentResponse.data.payment;
+      const cardPayment = cardPaymentResponse.data.data;
       createdPayments.push(cardPayment);
       console.log("✅ Pago con tarjeta creado");
       console.log(`   ID: ${cardPayment._id}`);
@@ -592,6 +657,7 @@ async function testPaymentModule() {
       paymentMethod: "efectivo",
       reference: "TEST-FINAL-001",
       notes: "Pago final para completar factura",
+      paymentDate: new Date().toISOString(),
     };
 
     const finalPaymentResponse = await makeRequest(
@@ -608,7 +674,7 @@ async function testPaymentModule() {
     if (finalPaymentResponse.statusCode !== 201) {
       console.error("❌ Error creando pago final:", finalPaymentResponse.data);
     } else {
-      const finalPayment = finalPaymentResponse.data.payment;
+      const finalPayment = finalPaymentResponse.data.data;
       createdPayments.push(finalPayment);
       console.log("✅ Pago final creado");
       console.log(`   ID: ${finalPayment._id}`);
@@ -625,7 +691,7 @@ async function testPaymentModule() {
     });
 
     if (finalInvoiceCheckResponse.statusCode === 200) {
-      const finalUpdatedInvoice = finalInvoiceCheckResponse.data.invoice;
+      const finalUpdatedInvoice = finalInvoiceCheckResponse.data.data;
       console.log(`   📊 Balance final: $${finalUpdatedInvoice.balance}`);
       console.log(`   📊 Estado final: ${finalUpdatedInvoice.status}`);
     }
@@ -644,6 +710,7 @@ async function testPaymentModule() {
       paymentMethod: "cheque",
       reference: "TEST-PENDING-001",
       notes: "Pago pendiente para testing de estados",
+      paymentDate: new Date().toISOString(),
       status: "pendiente",
     };
 
@@ -665,7 +732,7 @@ async function testPaymentModule() {
         pendingPaymentResponse.data
       );
     } else {
-      pendingPayment = pendingPaymentResponse.data.payment;
+      pendingPayment = pendingPaymentResponse.data.data;
       createdPayments.push(pendingPayment);
       console.log("✅ Pago pendiente creado");
       console.log(`   ID: ${pendingPayment._id}`);
@@ -690,7 +757,7 @@ async function testPaymentModule() {
         console.error("❌ Error confirmando pago:", confirmResponse.data);
       } else {
         console.log("✅ Pago confirmado exitosamente");
-        console.log(`   Nuevo estado: ${confirmResponse.data.payment.status}`);
+        console.log(`   Nuevo estado: ${confirmResponse.data.data.status}`);
       }
     }
 
@@ -702,6 +769,7 @@ async function testPaymentModule() {
       paymentMethod: "otro",
       reference: "TEST-REJECT-001",
       notes: "Pago que será rechazado",
+      paymentDate: new Date().toISOString(),
       status: "pendiente",
     };
 
@@ -723,7 +791,7 @@ async function testPaymentModule() {
         rejectPaymentResponse.data
       );
     } else {
-      rejectPayment = rejectPaymentResponse.data.payment;
+      rejectPayment = rejectPaymentResponse.data.data;
       createdPayments.push(rejectPayment);
       console.log("✅ Pago para rechazar creado");
     }
@@ -746,8 +814,8 @@ async function testPaymentModule() {
         console.error("❌ Error rechazando pago:", rejectResponse.data);
       } else {
         console.log("✅ Pago rechazado exitosamente");
-        console.log(`   Nuevo estado: ${rejectResponse.data.payment.status}`);
-        console.log(`   Notas: ${rejectResponse.data.payment.notes}`);
+        console.log(`   Nuevo estado: ${rejectResponse.data.data.status}`);
+        console.log(`   Notas: ${rejectResponse.data.data.notes}`);
       }
     }
 
@@ -784,8 +852,8 @@ async function testPaymentModule() {
         console.error("❌ Error actualizando pago:", updateResponse.data);
       } else {
         console.log("✅ Pago actualizado exitosamente");
-        console.log(`   Nuevo monto: $${updateResponse.data.payment.amount}`);
-        console.log(`   Nuevas notas: ${updateResponse.data.payment.notes}`);
+        console.log(`   Nuevo monto: $${updateResponse.data.data.amount}`);
+        console.log(`   Nuevas notas: ${updateResponse.data.data.notes}`);
       }
     }
 
@@ -907,7 +975,7 @@ async function testPaymentModule() {
     });
 
     if (finalCheckResponse.statusCode === 200) {
-      const finalInvoice = finalCheckResponse.data.invoice;
+      const finalInvoice = finalCheckResponse.data.data;
       console.log("\n📊 Estado final de la factura:");
       console.log(`   Balance: $${finalInvoice.balance}`);
       console.log(`   Estado: ${finalInvoice.status}`);

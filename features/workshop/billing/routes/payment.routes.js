@@ -6,6 +6,7 @@ const { validarJWT, validarCampos } = require("../../../../middlewares");
 
 // Controllers del módulo
 const {
+  getAllPayments,
   getInvoicePayments,
   getPaymentById,
   createPayment,
@@ -23,6 +24,16 @@ const router = Router();
 /**
  * {{url}}/api/payments
  */
+
+// Obtener todos los pagos - privado
+router.get(
+  "/",
+  [
+    validarJWT,
+    validarCampos,
+  ],
+  getAllPayments
+);
 
 // Obtener pagos por factura - privado
 router.get(

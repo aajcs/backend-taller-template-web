@@ -5,6 +5,48 @@ const { Payment, Invoice } = require("../models");
  * Controlador para gestión de pagos
  */
 
+// Obtener todos los pagos con filtros y paginación
+const getAllPayments = async (req, res = response) => {
+  try {
+    const { page = 1, limit = 10, status, paymentMethod, startDate, endDate } = req.query;
+
+    let query = { eliminado: false };
+
+    // Filtros opcionales
+    if (status) query.status = status;
+    if (paymentMethod) query.paymentMethod = paymentMethod;
+    if (startDate || endDate) {
+      query.paymentDate = {};
+      if (startDate) query.paymentDate.$gte = new Date(startDate);
+      if (endDate) query.paymentDate.$lte = new Date(endDate);
+    }
+
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort: { paymentDate: -1 },
+      populate: [
+        { path: 'invoice', select: 'invoiceNumber total paidAmount balance' },
+        { path: 'recordedBy', select: 'nombre email' }
+      ]
+    };
+
+    const payments = await Payment.paginate(query, options);
+
+    res.json({
+      success: true,
+      data: payments,
+    });
+  } catch (error) {
+    console.error("Error al obtener pagos:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener pagos",
+      error: error.message,
+    });
+  }
+};
+
 // Obtener pagos de una factura
 const getInvoicePayments = async (req, res = response) => {
   try {
@@ -23,6 +65,7 @@ const getInvoicePayments = async (req, res = response) => {
       invoice: invoiceId,
       eliminado: false,
     })
+      .populate("invoice", "invoiceNumber total paidAmount balance")
       .populate("recordedBy", "nombre email")
       .sort({ paymentDate: -1 });
 
@@ -398,6 +441,7 @@ const deletePayment = async (req, res = response) => {
 };
 
 module.exports = {
+  getAllPayments,
   getInvoicePayments,
   getPaymentById,
   createPayment,

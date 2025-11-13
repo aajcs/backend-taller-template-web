@@ -92,7 +92,7 @@ async function testShippingAndCancellation() {
     console.log("📋 PASO 2: Obtener datos de referencia");
     console.log("-".repeat(50));
 
-    // Obtener primer cliente activo
+    // Obtener primer customer activo
     const getCustomersResponse = await makeRequest({
       hostname: "localhost",
       port: 4000,
@@ -109,7 +109,7 @@ async function testShippingAndCancellation() {
 
     if (!customer) {
       console.log(
-        "❌ No hay clientes disponibles. Ejecuta customer.test.js primero."
+        "❌ No hay customers disponibles. Ejecuta customer.test.js primero."
       );
       return;
     }
@@ -203,7 +203,7 @@ async function testShippingAndCancellation() {
 
       const order = {
         numero: `SO-TEST-SHIP-${timestamp}-${String(i + 1).padStart(2, "0")}`,
-        cliente: customer.id || customer._id,
+        customer: customer.id || customer._id,
         fecha: new Date(),
         estado: "borrador",
         items: orderItems,

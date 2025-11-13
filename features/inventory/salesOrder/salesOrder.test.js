@@ -4,13 +4,13 @@ const http = require("http");
  * Test para el modelo SalesOrder (Órdenes de Venta)
  *
  * Funcionalidades probadas:
- * 1. Crear órdenes de venta con clientes del CRM
+ * 1. Crear órdenes de venta con customers del CRM
  * 2. Confirmar órdenes (crea reservaciones de stock)
  * 3. Despachar órdenes completas
  * 4. Despachar órdenes parciales
  * 5. Cancelar órdenes (libera reservas)
  * 6. Verificar actualización de stock
- * 7. Validar estadísticas de compras del cliente
+ * 7. Validar estadísticas de compras del customer
  * 8. Población correcta de referencias
  */
 
@@ -164,7 +164,7 @@ async function testSalesOrders() {
     const timestamp = Date.now();
     const salesOrdersToCreate = [];
 
-    // Crear 5 órdenes con diferentes clientes e items
+    // Crear 5 órdenes con diferentes customers e items
     for (let i = 0; i < 5; i++) {
       const customer = customers[i % customers.length];
       const numItems = Math.min(3, itemsConStock.length);
@@ -187,7 +187,7 @@ async function testSalesOrders() {
 
       salesOrdersToCreate.push({
         numero: `SO-${timestamp}-${String(i + 1).padStart(3, "0")}`,
-        cliente: customer.id || customer._id,
+        customer: customer.id || customer._id,
         fecha: new Date(),
         estado: "borrador",
         items: orderItems,
@@ -509,7 +509,7 @@ async function testSalesOrders() {
 
       // Verificar población
       const conCliente = testOrders.filter(
-        (o) => o.cliente && typeof o.cliente === "object"
+        (o) => o.customer && typeof o.customer === "object"
       ).length;
       const conReservas = testOrders.filter(
         (o) => o.reservations && o.reservations.length > 0
@@ -528,8 +528,8 @@ async function testSalesOrders() {
       console.log("-".repeat(100));
 
       testOrders.forEach((order, idx) => {
-        const clienteNombre =
-          typeof order.cliente === "object" ? order.cliente.nombre : "N/A";
+        const customerNombre =
+          typeof order.customer === "object" ? order.customer.nombre : "N/A";
         const estadoIcon =
           {
             borrador: "📝",
@@ -541,7 +541,7 @@ async function testSalesOrders() {
           }[order.estado] || "📄";
 
         console.log(`\n${estadoIcon} ${idx + 1}. ${order.numero}`);
-        console.log(`   Cliente: ${clienteNombre}`);
+        console.log(`   Cliente: ${customerNombre}`);
         console.log(`   Estado: ${order.estado}`);
         console.log(`   Items: ${order.items.length}`);
         console.log(`   Reservaciones: ${order.reservations?.length || 0}`);
@@ -566,7 +566,9 @@ async function testSalesOrders() {
     // ============================================
     // PASO 8: VERIFICAR ESTADÍSTICAS DEL CLIENTE
     // ============================================
-    console.log("\n\n📈 PASO 8: Verificar estadísticas de compras del cliente");
+    console.log(
+      "\n\n📈 PASO 8: Verificar estadísticas de compras del customer"
+    );
     console.log("-".repeat(50));
 
     const testCustomer = customers[0];
@@ -583,7 +585,7 @@ async function testSalesOrders() {
 
     if (customerStatsResponse.statusCode === 200) {
       const stats = customerStatsResponse.data;
-      console.log(`\n✅ Estadísticas del cliente: ${stats.cliente.nombre}`);
+      console.log(`\n✅ Estadísticas del customer: ${stats.customer.nombre}`);
       console.log(`\n📊 Resumen:`);
       console.log(`   Total de órdenes: ${stats.estadisticas.totalOrdenes}`);
       console.log(`\n📋 Por estado:`);
@@ -684,16 +686,16 @@ async function testSalesOrders() {
     console.log(`\n✅ Órdenes creadas: ${successCount} de 5`);
 
     console.log(`\n💡 Funcionalidades probadas:`);
-    console.log(`   ✅ Creación de órdenes con clientes del CRM`);
-    console.log(`   ✅ Validación de cliente existente y activo`);
+    console.log(`   ✅ Creación de órdenes con customers del CRM`);
+    console.log(`   ✅ Validación de customer existente y activo`);
     console.log(`   ✅ Confirmación de órdenes (reservaciones creadas)`);
     console.log(`   ✅ Despacho completo de mercancía`);
     console.log(`   ✅ Despacho parcial de mercancía`);
     console.log(`   ✅ Cancelación de órdenes (liberación de reservas)`);
     console.log(`   ✅ Actualización automática de stock`);
     console.log(`   ✅ Movimientos de salida registrados`);
-    console.log(`   ✅ Población de referencias (cliente, items, warehouse)`);
-    console.log(`   ✅ Estadísticas de compras del cliente`);
+    console.log(`   ✅ Población de referencias (customer, items, warehouse)`);
+    console.log(`   ✅ Estadísticas de compras del customer`);
     console.log(`   ✅ Transaccionalidad de operaciones`);
     console.log(`   ✅ Idempotencia en operaciones críticas`);
 

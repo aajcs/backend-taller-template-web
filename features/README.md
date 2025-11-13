@@ -12,7 +12,7 @@ Cada carpeta en `features/` representa un módulo o dominio de negocio autoconte
 features/
   ├── auth/              # Autenticación (login, registro, tokens)
   ├── user/              # Gestión de usuarios
-  ├── workshop/          # Gestión de talleres/refinerías
+  ├── workshop/           # Gestión de talleres/refinerías
   ├── inventory/         # Inventario por taller
   ├── finance/           # Módulo financiero (facturas, balance, costos)
   └── ...

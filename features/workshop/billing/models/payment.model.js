@@ -1,4 +1,5 @@
 const { Schema, model } = require("mongoose");
+const mongoosePaginate = require("mongoose-paginate-v2");
 
 /**
  * Modelo de Pago
@@ -140,5 +141,8 @@ paymentSchema.methods.refund = function (reason) {
   }
   return this.save();
 };
+
+// Plugin de paginación
+paymentSchema.plugin(mongoosePaginate);
 
 module.exports = model("Payment", paymentSchema);

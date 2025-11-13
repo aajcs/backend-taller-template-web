@@ -12,21 +12,21 @@ async function create(req, res, next) {
   try {
     const body = req.body;
 
-    // Validar que el cliente existe y está activo
+    // Validar que el customer existe y está activo
     const Customer = require("../../crm/customers/models/customer.model");
-    const cliente = await Customer.findById(body.cliente);
+    const customer = await Customer.findById(body.customer);
 
-    if (!cliente || cliente.eliminado) {
+    if (!customer || customer.eliminado) {
       return res.status(400).json({
         ok: false,
         msg: "Cliente no encontrado o eliminado",
       });
     }
 
-    if (cliente.estado !== "activo") {
+    if (customer.estado !== "activo") {
       return res.status(400).json({
         ok: false,
-        msg: "El cliente debe estar en estado activo para crear órdenes",
+        msg: "El customer debe estar en estado activo para crear órdenes",
       });
     }
 
@@ -35,8 +35,11 @@ async function create(req, res, next) {
     const so = new SalesOrder(body);
     await so.save();
 
-    // Popular cliente antes de responder
-    await so.populate("cliente", "nombre correo telefono tipo rif razonSocial");
+    // Popular customer antes de responder
+    await so.populate(
+      "customer",
+      "nombre correo telefono tipo rif razonSocial"
+    );
 
     res.status(201).json(so);
   } catch (err) {
@@ -47,7 +50,7 @@ async function create(req, res, next) {
 async function list(req, res, next) {
   try {
     const items = await SalesOrder.find({ eliminado: false })
-      .populate("cliente", "nombre correo telefono tipo rif razonSocial")
+      .populate("customer", "nombre correo telefono tipo rif razonSocial")
       .populate({
         path: "reservations",
         populate: [
@@ -55,6 +58,7 @@ async function list(req, res, next) {
           { path: "warehouse", select: "nombre codigo" },
         ],
       })
+      .populate("items.item", "nombre codigo")
       .lean();
     res.json(items);
   } catch (err) {
@@ -67,7 +71,7 @@ async function get(req, res, next) {
     const id = req.params.id;
     const so = await SalesOrder.findById(id)
       .populate(
-        "cliente",
+        "customer",
         "nombre correo telefono tipo rif razonSocial direccion"
       )
       .populate({

@@ -292,49 +292,30 @@ async function testBillingModule() {
     for (const statusCode of statusFlow) {
       console.log(`   ➡️ Cambiando a: ${statusCode}`);
 
-      // DEBUG: Llamar directamente al método del modelo para evitar problemas de routing
-      if (statusCode === "FACTURADO") {
-        console.log(`   🔧 Llamando directamente al método cambiarEstado...`);
-        const WorkOrder = require("../../features/workshop/work-orders/models/workOrder.model");
-        const workOrderDoc = await WorkOrder.findById(workOrder._id);
-        const result = await workOrderDoc.cambiarEstado(
-          statusCode,
-          loggedUser._id,
-          `Cambio automático para testing`
-        );
-
-        if (!result.success) {
-          console.error(`❌ cambiarEstado falló: ${result.message}`);
-          return;
+      // Usar el endpoint de la API para todos los cambios de estado
+      const changeResponse = await makeRequest(
+        {
+          hostname: "localhost",
+          port: 4000,
+          path: `/api/work-orders/${workOrder._id}/change-status`,
+          method: "POST",
+          headers,
+        },
+        {
+          newStatus: statusCode,
+          notes: `Paso automático para testing de facturación`,
         }
+      );
 
-        console.log(`      ✅ Estado cambiado directamente a ${statusCode}`);
-      } else {
-        // Usar el endpoint normal para otros estados
-        const changeResponse = await makeRequest(
-          {
-            hostname: "localhost",
-            port: 4000,
-            path: `/api/work-orders/${workOrder._id}/change-status`,
-            method: "POST",
-            headers,
-          },
-          {
-            newStatus: statusCode,
-            notes: `Paso automático para testing de facturación`,
-          }
+      if (changeResponse.statusCode !== 200) {
+        console.error(
+          `❌ Error cambiando a ${statusCode}:`,
+          changeResponse.data
         );
-
-        if (changeResponse.statusCode !== 200) {
-          console.error(
-            `❌ Error cambiando a ${statusCode}:`,
-            changeResponse.data
-          );
-          break;
-        }
-
-        console.log(`      ✅ Estado cambiado a ${statusCode}`);
+        break;
       }
+
+      console.log(`      ✅ Estado cambiado a ${statusCode}`);
 
       // Si llega a FACTURADO, completar items
       if (statusCode === "FACTURADO") {
